@@ -74,10 +74,6 @@ c_clean={'m1': 10,
 # 2.4 Capacities
 # vehicle capacity
 capV = 100 
-# generation in each region
-gen = {'r1': 500,
-        'r2': 300
-    }
 # classification capacity
 capC = {'c1': 300,
         'c2': 250,
@@ -98,10 +94,29 @@ capM = {'m1': 900,
         'm2': 750
     }
 
-# 2.5 demands
-demP = {'p1': 300,
-        'p2': 250,
-        'p3':100}
+# 2.5 generation and demands
+# generation in each region
+gen = {('r1', 1): 500,
+       ('r1', 2): 500,
+       ('r1', 3): 500,
+       ('r1', 4): 500,
+       ('r2', 1): 300,
+       ('r2', 2): 300,
+       ('r2', 3): 300,
+       ('r2', 4): 300,
+    }
+demP = {('p1',1): 300,
+        ('p1',2): 300,
+        ('p1',3): 300,
+        ('p1',4): 300,
+        ('p2',1): 250,        
+        ('p2',2): 250,        
+        ('p2',3): 250,
+        ('p2',4): 250,
+        ('p3',1): 100,
+        ('p3',2): 100,
+        ('p3',3): 100,
+        ('p3',4): 100}
 # commercial relationship min duration
 dt = 2
 
@@ -151,7 +166,7 @@ constr_capC = model.addConstrs(
 
 # generation at each region
 constr_gen = model.addConstrs(
-    (flow_e1.sum(r, '*', t) <= gen[r]  for r in regions for t in time), "gen")
+    (flow_e1.sum(r, '*', t) <= gen[r,t]  for r in regions for t in time), "gen")
 
 # storage capacity
 constr_capS = model.addConstrs(
@@ -173,7 +188,7 @@ cosntr_stock = model.addConstrs(
 
 # demand fulfillment
 constr_demP = model.addConstrs(
-    (flow_e3.sum('*',p, t) >= demP[p] for p in producers for t in time), "demP")
+    (flow_e3.sum('*',p, t) >= demP[p,t] for p in producers for t in time), "demP")
 
 # commercial relationship
 constr_relat1 = model.addConstrs(
