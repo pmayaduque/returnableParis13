@@ -9,11 +9,34 @@ m = gp.Model('returnability')
 # 2. basic data
 # 2.1. Sets
 regions = ['r1', 'r2']
-collectors = ['c1', 'c2', 'c3']
-manufs = ['m1', 'm2']
+# collectors = ['c1', 'c2', 'c3']
+# manufs = ['m1', 'm2']
 producers = ['p1', 'p2', 'p3']
 time = [1, 2, 3, 4]
 
+# c_buy: buying cost
+# c_clasif: cost of classigying at collection center
+# c_activ: collection center activation cost
+# c_hold: cost of holding aty the collection center
+# capC: classification capacity
+# capS: sortage capacity
+# inisS: initial stock at the collection center
+collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(
+    {'c1': [100, 10, 100, 1, 300, 900, 1],
+     'c2': [90, 9, 100, 1, 250, 250, 1],
+     'c3': [80, 8, 100, 1, 300, 600, 1]})
+
+
+# c_clean: cost of cleaning at transformer
+# capM: casssification capacity
+manufs, c_clean, capM  = gp.multidict(
+    {'m1': [10, 900],
+     'm2': [9, 750]})
+
+# commercial relationship min duration
+dt = 2
+# vehicle capacity
+capV = 100
 
 # 2.2. Sparse network
 # echelon 1 (regions to collections centers)
@@ -23,7 +46,6 @@ arcs_e1 = gp.tuplelist([('r1', 'c1'),
                         ('r2', 'c1'), 
                         ('r2', 'c2'),
                         ('r2', 'c3')])
-#arcs_e1 = [(a[0], a[1], t) for a in arcs_e1 for t in time]
 
 # echelon 2 (collection centers to manufacturers)
 arcs_e2, cost_e2 = gp.multidict({
@@ -33,7 +55,6 @@ arcs_e2, cost_e2 = gp.multidict({
     ('c2', 'm2'):   15,
     ('c3', 'm1'):   35,
     ('c3', 'm2'):   28})
-#arcs_e2 = [(a[0], a[1], t) for a in arcs_e2 for t in time]
 
 # echelon 3 (manufaturers to producers)
 arcs_e3, cost_e3 = gp.multidict({
@@ -43,56 +64,7 @@ arcs_e3, cost_e3 = gp.multidict({
     ('m2', 'p1'):   100,
     ('m2', 'p2'):   90,
     ('m2', 'p3'):   80})
-#arcs_e3 = [(a[0], a[1], t) for a in arcs_e3 for t in time]
 
-# 2.3 procesing costs
-# buying cost
-c_buy = {'c1': 100,
-         'c2': 90,
-         'c3': 80
-    }
-# classifying cost
-c_clasif ={'c1': 10,
-           'c2': 9,
-           'c3': 8
-    }
-# collection center activation cost
-c_activ ={'c1': 100,
-          'c2': 100,
-          'c3': 100
-    }
-# collection center activation cost
-c_hold ={'c1': 1,
-         'c2': 1,
-         'c3': 1
-    }
-#  cleaning cost
-c_clean={'m1': 10,
-         'm2': 9
-    }
-
-# 2.4 Capacities
-# vehicle capacity
-capV = 100 
-# classification capacity
-capC = {'c1': 300,
-        'c2': 250,
-        'c3': 300
-    }
-# sortage capacity
-capS = {'c1': 900,
-        'c2': 750,
-        'c3': 600
-    }
-# initial stock at collection center
-iniS = {'c1': 1,
-        'c2': 1,
-        'c3': 1
-    }
-# transformer capacity
-capM = {'m1': 900,
-        'm2': 750
-    }
 
 # 2.5 generation and demands
 # generation in each region
@@ -117,8 +89,7 @@ demP = {('p1',1): 300,
         ('p3',2): 100,
         ('p3',3): 100,
         ('p3',4): 100}
-# commercial relationship min duration
-dt = 2
+
 
 
 # 3. modelling
