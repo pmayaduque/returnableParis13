@@ -132,28 +132,31 @@ flow_e3 = model.addVars(arcs_e3, time,  name="flow_e3")
 activ = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ")
 activ_f = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ_f")
 stock = model.addVars(collectors, time, name="stock")
+trips_e2 = model.addVars(arcs_e2, time,  vtype=gp.GRB.INTEGER, name="trips_e2")
+trips_e3 = model.addVars(arcs_e3, time,  vtype=gp.GRB.INTEGER, name="trips_e3")
 
 # 3.3. create the objective function
 obj = gp.LinExpr()
-# 3.3.1. buying and classification cost
+# buying and classification cost
 for r,c,t in flow_e1:
     obj += c_buy[c]*flow_e1[r,c,t] + c_clasif[c]*flow_e1[r,c,t]
     
-# 3.3.2. transforming (cleaning)
+# transforming (cleaning)
 for m,p,t in flow_e3:
     obj += c_clean[m]*flow_e3[m,p,t] 
 
-# 3.3.3. collection center activation cost and inventory holding
+# collection center activation cost and inventory holding
 for c,t in [(c,t) for c in collectors for t in time]:
     obj += c_activ[c]*activ[c,t] + c_hold[c]*stock[c,t]
 
-# 3.3.4 transport from collections to transformers
+# transport from collections to transformers
 for c,m,t in flow_e2:
-    obj += cost_e2[c,m]*flow_e2[c,m,t] / capV
+    obj += cost_e2[c,m]*trips_e2[c,m,t]
+    
 
-# 3.3.4 transport from transformers to producers 
-for c,m,t in flow_e2:
-    obj += cost_e2[c,m]*flow_e2[c,m,t] / capV
+# transport from transformers to producers 
+for m,p,t in flow_e3:
+    obj += cost_e3[m,p]*trips_e3[m,p,t]
     
 # set the objective 
 model.setObjective(obj, GRB.MINIMIZE)
@@ -199,13 +202,24 @@ def prev_actv(c, t):
         return 0
     return activ[c,t-1]    
 constr_relat2 = model.addConstrs(
-    activ_f[c,t]>=activ[c,t] - prev_actv(c, t) for c in collectors for t in time
+    (activ_f[c,t]>=activ[c,t] - prev_actv(c, t) for c in collectors for t in time), "relat2"
     )
 
 constr_manu_bal = model.addConstrs(
-    flow_e2.sum('*', m, t) == flow_e3.sum(m, '*', t) for m in manufs for t in time
+    (flow_e2.sum('*', m, t) == flow_e3.sum(m, '*', t) for m in manufs for t in time), "relat1"
     )
 
+# round up trips
+constr_trips_e2 = model.addConstrs(
+    (trips_e2[c,m,t] >=3 for c in collectors for m in manufs for t in time), "trips_e2"
+    )
+
+# round up trips
+constr_trips_e3 = model.addConstrs(
+    (trips_e3[m,p,t] >= flow_e3[m,p,t] / capV for m in manufs for p in producers for t in time), "trips_e3"
+    )
+
+# 3.5 optimize the model
 model.optimize()
 
 # Print solution
@@ -227,16 +241,27 @@ if model.Status == GRB.OPTIMAL:
     for r,c,t in flow_e1:
         if flow_e1_sol[r,c,t]> 0:
             print('flow_e1(%s,  %s, %s): %g' % (r, c, t, flow_e1_sol[r,c,t])) 
-    print("Flow collectors regions to transformers")
+    print("Flow collectors to transformers")
     flow_e2_sol = model.getAttr('X', flow_e2)
     for c,m,t in flow_e2:
         if flow_e2_sol[c,m,t]> 0:
-            print('flow_e1(%s,  %s, %s): %g' % (c,m,t, flow_e2_sol[c,m,t])) 
-    print("Flow collectors transformers to producers")
+            print('flow_e2(%s,  %s, %s): %g' % (c,m,t, flow_e2_sol[c,m,t])) 
+    print("Flow transformers to producers")
     flow_e3_sol = model.getAttr('X', flow_e3)
     for m,p,t in flow_e3:
         if flow_e3_sol[m,p,t]> 0:
-            print('flow_e1(%s,  %s, %s): %g' % (m,p,t, flow_e3_sol[m,p,t])) 
+            print('flow_e3(%s,  %s, %s): %g' % (m,p,t, flow_e3_sol[m,p,t])) 
+    print("Trips collectors  to transformers")
+    trips_e2_sol = model.getAttr('X', trips_e2)
+    for c,m,t in trips_e2:
+        if trips_e2_sol[c,m,t]> 0:
+            print('trips_e2(%s,  %s, %s): %g' % (c,m,t, trips_e2_sol[c,m,t]))
+    print("Trips transformers to producers")
+    trips_e3_sol = model.getAttr('X', flow_e3)
+    for m,p,t in trips_e3:
+        if flow_e3_sol[m,p,t]> 0:
+            print('trips_e3(%s,  %s, %s): %g' % (m,p,t, trips_e3_sol[m,p,t])) 
+
             
 
 # model.update()
