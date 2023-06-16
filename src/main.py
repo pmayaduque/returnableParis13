@@ -147,19 +147,19 @@ model.setObjective(obj, GRB.MINIMIZE)
 
 # classification capacity
 constr_capC = model.addConstrs(
-    (flow_e1.sum('*', c, t) <= capC[c] for c, t in [(c, t) for c in collectors for t in time]), "capC")
+    (flow_e1.sum('*', c, t) <= capC[c]*activ[c,t] for c in collectors for t in time), "capC")
 
 # generation at each region
 constr_gen = model.addConstrs(
-    (flow_e1.sum(r, '*', t) <= gen[r] for r, t in [(r, t) for c in regions for t in time]), "gen")
+    (flow_e1.sum(r, '*', t) <= gen[r]  for r in regions for t in time), "gen")
 
 # storage capacity
 constr_capS = model.addConstrs(
-    (stock[c,t]<=capS[c] for c, t in [(c, t) for c in collectors for t in time]), "capS")
+    (stock[c,t]<=capS[c] for c in collectors for t in time), "capS")
 
 # transformer capacity
 constr_capM = model.addConstrs(
-    (flow_e2.sum('*', m, t) <= capM[m] for m, t in [(m, t) for m in manufs for t in time]), "capM")
+    (flow_e2.sum('*', m, t) <= capM[m] for m in manufs for t in time), "capM")
 
 # stock balance
 def prev_stock(c,t):
@@ -168,31 +168,68 @@ def prev_stock(c,t):
     return stock[c,t]
     
 cosntr_stock = model.addConstrs(
-    (stock[c,t] == prev_stock(c,t) + flow_e1.sum('*', c, t) - flow_e2.sum(c,'*', t) for c, t in [(c, t) for c in collectors for t in time]), "stock")
+    (stock[c,t] == prev_stock(c,t) + flow_e1.sum('*', c, t) - flow_e2.sum(c,'*', t) for c in collectors for t in time), "stock")
 
 
 # demand fulfillment
 constr_demP = model.addConstrs(
-    (flow_e3.sum('*',p, t) <= demP[p] for p, t in [(p, t) for p in producers for t in time]), "demP")
+    (flow_e3.sum('*',p, t) >= demP[p] for p in producers for t in time), "demP")
 
 # commercial relationship
 constr_relat1 = model.addConstrs(
-    (activ[c,t] >= activ_f[c,t1] for c, t1, t in [(c, t1, t) for c in collectors for t1 in time for t in range(t1, min(t1+dt, len(time)))]))
+    (activ[c,t] >= activ_f[c,t1] for c in collectors for t1 in time for t in range(t1, min(t1+dt, len(time)))))
+
 def prev_actv(c, t):
     if t <=1:
         return 0
-    return activ[c,t-1]
-    
+    return activ[c,t-1]    
 constr_relat2 = model.addConstrs(
     activ_f[c,t]>=activ[c,t] - prev_actv(c, t) for c in collectors for t in time
     )
 
-model.update()
-constraint = constr_relat2['c3',2]
-constraint_expr = model.getRow(constraint)
-# Print the mathematical expression of the constraint
-sense = constraint.getAttr(gp.GRB.Attr.Sense)
-rhs = constraint.getAttr(gp.GRB.Attr.RHS)
+constr_manu_bal = model.addConstrs(
+    flow_e2.sum('*', m, t) == flow_e3.sum(m, '*', t) for m in manufs for t in time
+    )
 
-expr_str = f"{constraint_expr} {sense} {rhs}"
-print(expr_str)
+model.optimize()
+
+# Print solution
+if model.Status == GRB.OPTIMAL:
+    # facility activation
+    activ_f_sol = model.getAttr('X', activ_f)
+    for c in collectors:
+        for t in time:
+            if activ_f_sol[c,t] > 0:
+                print('activ_f(%s,  %s): %g' % (c, t, activ_f_sol[c,t]))
+    activ_sol = model.getAttr('X', activ)
+    for c in collectors:
+        for t in time:
+            if activ_sol[c,t] > 0:
+                print('activ(%s,  %s): %g' % (c, t, activ_sol[c,t]))
+    # flows from regions to collections
+    print("Flow from regions to colllectors")
+    flow_e1_sol = model.getAttr('X', flow_e1)
+    for r,c,t in flow_e1:
+        if flow_e1_sol[r,c,t]> 0:
+            print('flow_e1(%s,  %s, %s): %g' % (r, c, t, flow_e1_sol[r,c,t])) 
+    print("Flow collectors regions to transformers")
+    flow_e2_sol = model.getAttr('X', flow_e2)
+    for c,m,t in flow_e2:
+        if flow_e2_sol[c,m,t]> 0:
+            print('flow_e1(%s,  %s, %s): %g' % (c,m,t, flow_e2_sol[c,m,t])) 
+    print("Flow collectors transformers to producers")
+    flow_e3_sol = model.getAttr('X', flow_e3)
+    for m,p,t in flow_e3:
+        if flow_e3_sol[m,p,t]> 0:
+            print('flow_e1(%s,  %s, %s): %g' % (m,p,t, flow_e3_sol[m,p,t])) 
+            
+
+# model.update()
+# constraint = constr_relat2['c3',2]
+# constraint_expr = model.getRow(constraint)
+# # Print the mathematical expression of the constraint
+# sense = constraint.getAttr(gp.GRB.Attr.Sense)
+# rhs = constraint.getAttr(gp.GRB.Attr.RHS)
+
+# expr_str = f"{constraint_expr} {sense} {rhs}"
+# print(expr_str)
