@@ -5,7 +5,7 @@ import json
 
 
 # read dat from file
-def red_data_json(path):
+def red_data_json(file_path):
     # Read the JSON file
     with open(file_path, "r") as json_file:
         json_data = json.load(json_file)
@@ -16,18 +16,18 @@ def red_data_json(path):
             'manufs': json_data['manufs'],
             'producers': json_data['producers'],
             'time': json_data['time'],
-            'arcs_e1': json_data['arcs_e1'],
-            'arcs_e2': {eval(k): v for k,v in json_data['arcs_e2'].items()},
-            'arcs_e3': {eval(k): v for k,v in json_data['arcs_e3'].items()},
-            'gen' : {eval(k): v for k,v in json_data['gen'].items()},
-            'demP' : {eval(k): v for k,v in json_data['demP'].items()},
+            'arcs_e1': [tuple(k) for k in json_data['arcs_e1']],
+            'arcs_e2': {tuple(eval(k)): v for k,v in json_data['arcs_e2'].items()},
+            'arcs_e3': {tuple(eval(k)): v for k,v in json_data['arcs_e3'].items()},
+            'gen' : {(eval(k)): v for k,v in json_data['gen'].items()},
+            'demP' : {tuple(eval(k)): v for k,v in json_data['demP'].items()},
             'dt': json_data['dt'],
             'capV': json_data['capV']
             }
     return data
 
 
-data = red_data_json('data.json')   
+
 
     
 
@@ -40,17 +40,15 @@ data = red_data_json('data.json')
 # capC: classification capacity
 # capS: sortage capacity
 # inisS: initial stock at the collection center
-collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(
-    {'c1': [100, 10, 100, 1, 300, 900, 1],
+collectors = {'c1': [100, 10, 100, 1, 300, 900, 1],
      'c2': [90, 9, 100, 1, 250, 250, 1],
-     'c3': [80, 8, 100, 1, 300, 600, 1]})
+     'c3': [80, 8, 100, 1, 300, 600, 1]}
 
 
 # c_clean: cost of cleaning at transformer
 # capM: casssification capacity
-manufs, c_clean, capM  = gp.multidict(
-    {'m1': [10, 900],
-     'm2': [9, 750]})
+manufs =    {'m1': [10, 900],
+     'm2': [9, 750]}
 
 regions = ['r1', 'r2']
 producers = ['p1', 'p2', 'p3']
@@ -116,13 +114,6 @@ capV = 100
 
 
 
-arcs_e2 = {
-    ('c1', 'm1'):   100,
-    ('c1', 'm2'):   90,
-    ('c2', 'm1'):   80,
-    ('c2', 'm2'):   15,
-    ('c3', 'm1'):   35,
-    ('c3', 'm2'):   28}
 
 data = {
         'regions': regions,
@@ -133,17 +124,15 @@ data = {
         'arcs_e1': arcs_e1,
         'arcs_e2': arcs_e2,
         'arcs_e3': arcs_e3,
+        'gen': gen,
+        'demP': demP,
         'dt': dt,
         'capV':capV
         }
 
 
 
-    
 
-
-# Specify the file path of the JSON file
-file_path = "data.json"
 
 
 
@@ -181,10 +170,10 @@ def create_model(data):
     arcs_e1 = gp.tuplelist(data['arcs_e1'])
 
     # echelon 2 (collection centers to manufacturers)
-    arcs_e2, cost_e2 = gp.multidict('arcs_e2')
+    arcs_e2, cost_e2 = gp.multidict(data['arcs_e2'])
 
     # echelon 3 (manufaturers to producers)
-    arcs_e3, cost_e3 = gp.multidict('arcs_e3')
+    arcs_e3, cost_e3 = gp.multidict(data['arcs_e3'])
 
 
     # 2.5 generation and demands
@@ -292,6 +281,12 @@ def create_model(data):
     
     return model
 
+# create from data entered manually
+model = create_model(data)
+
+# created from json
+data_json = red_data_json('data\data.json')   
+model = create_model(data_json)
 # 3.5 optimize the model
 model.optimize()
 
@@ -346,3 +341,17 @@ if model.Status == GRB.OPTIMAL:
 
 # expr_str = f"{constraint_expr} {sense} {rhs}"
 # print(expr_str)
+
+    # echelon 2 (collection centers to manufacturers)
+arcs_e2 = {    ('c1', 'm1'):   100,
+        ('c1', 'm2'):   90,
+        ('c2', 'm1'):   80,
+        ('c2', 'm2'):   15,
+        ('c3', 'm1'):   35,
+        ('c3', 'm2'):   28}
+arcs_e2, cost_e2 = gp.multidict({    ('c1', 'm1'):   100,
+        ('c1', 'm2'):   90,
+        ('c2', 'm1'):   80,
+        ('c2', 'm2'):   15,
+        ('c3', 'm1'):   35,
+        ('c3', 'm2'):   28})
