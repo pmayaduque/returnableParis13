@@ -1,18 +1,34 @@
 # 1. import the libraries
 import gurobipy as gp
 from gurobipy import GRB
+import json
 
 
-# create a new model
-m = gp.Model('returnability')
+# read dat from file
+def red_data_json(path):
+    # Read the JSON file
+    with open(file_path, "r") as json_file:
+        json_data = json.load(json_file)
+    
+    data = {
+            'regions': json_data['regions'],
+            'collectors': json_data['collectors'],
+            'manufs': json_data['manufs'],
+            'producers': json_data['producers'],
+            'time': json_data['time'],
+            'arcs_e1': json_data['arcs_e1'],
+            'arcs_e2': {eval(k): v for k,v in json_data['arcs_e2'].items()},
+            'arcs_e3': {eval(k): v for k,v in json_data['arcs_e3'].items()},
+            'dt': json_data['dt']
+            }
+    return data
+
+
+data = red_data_json('data.json')   
+
+    
 
 # 2. basic data
-# 2.1. Sets
-regions = ['r1', 'r2']
-# collectors = ['c1', 'c2', 'c3']
-# manufs = ['m1', 'm2']
-producers = ['p1', 'p2', 'p3']
-time = [1, 2, 3, 4]
 
 # c_buy: buying cost
 # c_clasif: cost of classigying at collection center
@@ -33,12 +49,12 @@ manufs, c_clean, capM  = gp.multidict(
     {'m1': [10, 900],
      'm2': [9, 750]})
 
-# commercial relationship min duration
-dt = 2
-# vehicle capacity
-capV = 100
+regions = ['r1', 'r2']
+producers = ['p1', 'p2', 'p3']
+time = [1, 2, 3, 4]
 
-# 2.2. Sparse network
+
+# Sparse network
 # echelon 1 (regions to collections centers)
 arcs_e1 = gp.tuplelist([('r1', 'c1'), 
                         ('r1', 'c2'),
@@ -90,10 +106,49 @@ demP = {('p1',1): 300,
         ('p3',3): 100,
         ('p3',4): 100}
 
+# commercial relationship min duration
+dt = 2
+# vehicle capacity
+capV = 100
+
+
+
+
+arcs_e2 = {
+    ('c1', 'm1'):   100,
+    ('c1', 'm2'):   90,
+    ('c2', 'm1'):   80,
+    ('c2', 'm2'):   15,
+    ('c3', 'm1'):   35,
+    ('c3', 'm2'):   28}
+
+data = {
+        'regions': regions,
+        'collectors': collectors,
+        'manufs': manufs,
+        'producers': producers,
+        'time': time,
+        'arcs_e1': arcs_e1,
+        'arcs_e2': arcs_e2,
+        'arcs_e3': arcs_e3,
+        'dt': dt,
+        'capV':capV
+        }
+
+
+
+    
+
+
+# Specify the file path of the JSON file
+file_path = "data.json"
+
+
 
 
 # 3. modelling
 # 3.1. create a new model
+def create_model(data):
 model = gp.Model('returnability')
 
 # 3.2. create variables
@@ -193,7 +248,7 @@ constr_trips_e3 = model.addConstrs(
 # 3.5 optimize the model
 model.optimize()
 
-# Print solution
+# 4. Print solution
 if model.Status == GRB.OPTIMAL:
     # facility activation
     activ_f_sol = model.getAttr('X', activ_f)
