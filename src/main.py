@@ -150,20 +150,15 @@ def create_model(data):
     # capC: classification capacity
     # capS: sortage capacity
     # inisS: initial stock at the collection center
-    collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(
-        {'c1': [100, 10, 100, 1, 300, 900, 1],
-         'c2': [90, 9, 100, 1, 250, 250, 1],
-         'c3': [80, 8, 100, 1, 300, 600, 1]})
+    collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
     
     # c_clean: cost of cleaning at transformer
     # capM: casssification capacity
-    manufs, c_clean, capM  = gp.multidict(
-        {'m1': [10, 900],
-         'm2': [9, 750]})
+    manufs, c_clean, capM  = gp.multidict(data['manufs'])
 
-    regions = ['r1', 'r2']
-    producers = ['p1', 'p2', 'p3']
-    time = [1, 2, 3, 4]
+    regions = data['regions']
+    producers = data['producers']
+    time = data['time']
     
     # Sparse network
     # echelon 1 (regions to collections centers)
@@ -180,6 +175,8 @@ def create_model(data):
     # generation in each region
     gen = data['gen']
     demP = data['demP']
+    dt = data['dt']
+    capV = data['capV']
 
     
     
@@ -285,48 +282,57 @@ def create_model(data):
 model = create_model(data)
 
 # created from json
-data_json = red_data_json('data\data.json')   
+data_json = red_data_json(r'../data/data.json')   
 model = create_model(data_json)
 # 3.5 optimize the model
 model.optimize()
 
+model.update()
+
+for var in model.getVars():
+        print(f"{var.varName}: {var.x}")
+        
+for attribute, value in model.__dict__.items():
+    print(f"{attribute}: {value}")
+[var for var in model.getVars() if "activ_f" in var.VarName]
+
 # 4. Print solution
 if model.Status == GRB.OPTIMAL:
     # facility activation
-    activ_f_sol = model.getAttr('X', activ_f)
+    activ_f_sol = model.getAttr('X', model.activ_f)
     for c in collectors:
         for t in time:
             if activ_f_sol[c,t] > 0:
                 print('activ_f(%s,  %s): %g' % (c, t, activ_f_sol[c,t]))
-    activ_sol = model.getAttr('X', activ)
+    activ_sol = model.getAttr('X', model.activ)
     for c in collectors:
         for t in time:
             if activ_sol[c,t] > 0:
                 print('activ(%s,  %s): %g' % (c, t, activ_sol[c,t]))
     # flows from regions to collections
     print("Flow from regions to colllectors")
-    flow_e1_sol = model.getAttr('X', flow_e1)
-    for r,c,t in flow_e1:
+    flow_e1_sol = model.getAttr('X', model.flow_e1)
+    for r,c,t in model.flow_e1:
         if flow_e1_sol[r,c,t]> 0:
             print('flow_e1(%s,  %s, %s): %g' % (r, c, t, flow_e1_sol[r,c,t])) 
     print("Flow collectors to transformers")
-    flow_e2_sol = model.getAttr('X', flow_e2)
-    for c,m,t in flow_e2:
+    flow_e2_sol = model.getAttr('X', model.flow_e2)
+    for c,m,t in model.flow_e2:
         if flow_e2_sol[c,m,t]> 0:
             print('flow_e2(%s,  %s, %s): %g' % (c,m,t, flow_e2_sol[c,m,t])) 
     print("Flow transformers to producers")
-    flow_e3_sol = model.getAttr('X', flow_e3)
-    for m,p,t in flow_e3:
+    flow_e3_sol = model.getAttr('X', model.flow_e3)
+    for m,p,t in model.flow_e3:
         if flow_e3_sol[m,p,t]> 0:
             print('flow_e3(%s,  %s, %s): %g' % (m,p,t, flow_e3_sol[m,p,t])) 
     print("Trips collectors  to transformers")
-    trips_e2_sol = model.getAttr('X', trips_e2)
-    for c,m,t in trips_e2:
+    trips_e2_sol = model.getAttr('X', model.trips_e2)
+    for c,m,t in model.trips_e2:
         if trips_e2_sol[c,m,t]> 0:
             print('trips_e2(%s,  %s, %s): %g' % (c,m,t, trips_e2_sol[c,m,t]))
     print("Trips transformers to producers")
-    trips_e3_sol = model.getAttr('X', flow_e3)
-    for m,p,t in trips_e3:
+    trips_e3_sol = model.getAttr('X', model.trips_e3)
+    for m,p,t in model.trips_e3:
         if flow_e3_sol[m,p,t]> 0:
             print('trips_e3(%s,  %s, %s): %g' % (m,p,t, trips_e3_sol[m,p,t])) 
 
