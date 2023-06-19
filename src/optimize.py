@@ -165,13 +165,15 @@ def create_model(instance):
     
     # round up trips
     constr_trips_e2 = model.addConstrs(
-        (trips[c,m,t] >=3 for c in collectors for m in manufs for t in time), "trips_e2"
+        (trips[c,m,t] >=flow[c,m,t] for c in collectors for m in manufs for t in time), "trips_e2"
         )
     
     # round up trips
     constr_trips_e3 = model.addConstrs(
         (trips[m,p,t] >= flow[m,p,t] / capV for m in manufs for p in producers for t in time), "trips_e3"
         )
+    
+    model.update()
     
     return model
 
@@ -198,7 +200,7 @@ def get_results(model, instance):
             #indexes = re.findall(r'\d', var.VarName.split('[')[1])
             [row.append(index) for index in indexes]
             row.append(var.X)
-            if any(name in var.VarName for name in ['flow_e1', 'flow_e2', 'flow_e3', 'trips_e2', 'trips_e3']):
+            if any(name in var.VarName for name in ['flow', 'trip']):
                 flows.append(row)
             else:
                 network.append(row)

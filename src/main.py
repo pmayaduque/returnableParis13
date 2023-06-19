@@ -36,23 +36,23 @@ time = [1, 2, 3, 4]
 # Sparse network
 # echelon 1 (regions to collections centers)
 arcs = {('r1', 'c1'): 0, 
-       ('r1', 'c2'): 0,
-       ('r1', 'c3'): 0,
-       ('r2', 'c1'): 0, 
-       ('r2', 'c2'): 0,
-       ('r2', 'c3'): 0,
-       ('c1', 'm1'):   100,
-       ('c1', 'm2'):   90,
-       ('c2', 'm1'):   80,
-       ('c2', 'm2'):   15,
-       ('c3', 'm1'):   35,
-       ('c3', 'm2'):   28,
-    ('m1', 'p1'):   100,
-    ('m1', 'p2'):   90,
-    ('m1', 'p3'):   80,
-    ('m2', 'p1'):   100,
-    ('m2', 'p2'):   90,
-    ('m2', 'p3'):   80}
+        ('r1', 'c2'): 0,
+        ('r1', 'c3'): 0,
+        ('r2', 'c1'): 0, 
+        ('r2', 'c2'): 0,
+        ('r2', 'c3'): 0,
+        ('c1', 'm1'):   100,
+        ('c1', 'm2'):   90,
+        ('c2', 'm1'):   80,
+        ('c2', 'm2'):   15,
+        ('c3', 'm1'):   35,
+        ('c3', 'm2'):   28,
+        ('m1', 'p1'):   100,
+        ('m1', 'p2'):   90,
+        ('m1', 'p3'):   80,
+        ('m2', 'p1'):   100,
+        ('m2', 'p2'):   90,
+        ('m2', 'p3'):   80}
 
 # generation in each region
 gen = {('r1', 1): 500,
@@ -104,111 +104,116 @@ data = {
 instance = Instance(data)
 model = create_model(instance)
 
+# # Run de model from a json file in /data dolder
+# data_json = read_data_json(r'../data/data.json') 
+# instance = Instance(data_json)  
+# model = create_model(instance)
+
 # 3. solve model and get results
 solve_model(model)
 status, solution = get_results(model, instance)
 
-# 4. Check solution
-validation = solution.solution_checker()
+# # 4. Check solution
+# validation = solution.solution_checker()
 
 
 
-# add arc column to df_flows
-df_flows = solution.df_flows
-df_flows['arc'] = list(zip(df_flows['origin'], df_flows['destination']))
-collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
-c_transp = {**{arc:0 for arc in arcs_e1}, **arcs_e2, **arcs_e3}
+# # add arc column to df_flows
+# df_flows = solution.df_flows
+# df_flows['arc'] = list(zip(df_flows['origin'], df_flows['destination']))
+# collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
+# c_transp = {**{arc:0 for arc in arcs_e1}, **arcs_e2, **arcs_e3}
 
-#df_flows_agg = df_flows.groupby(['arc'], as_index=False).agg(
-    #total_flow = ('value', sum))
-# create a dataframe with the costs of flow in each arc
+# #df_flows_agg = df_flows.groupby(['arc'], as_index=False).agg(
+#     #total_flow = ('value', sum))
+# # create a dataframe with the costs of flow in each arc
 
-# # agregated transportation costs in a single dataframe
-# df_arcs_e1 = pd.DataFrame.from_records(
-#     list(zip(data['arcs_e1'], np.zeros(len(data['arcs_e1'])))),
-#     columns = ['arc', 'c_transp'])
-# df_arcs_e2 = pd.DataFrame.from_dict(data['arcs_e2'], orient = 'index', columns =['c_transp'])
-# df_arcs_e3 = pd.DataFrame.from_dict(data['arcs_e3'], orient = 'index', columns =['c_transp'])
-# df_c_transp = pd.concat([df_arcs_e2, df_arcs_e3])
-# df_c_transp.reset_index(inplace=True)
-# df_c_transp.rename(columns={'index': 'arc'}, inplace=True)
-# df_c_transp = pd.concat([df_arcs_e1, df_c_transp])
+# # # agregated transportation costs in a single dataframe
+# # df_arcs_e1 = pd.DataFrame.from_records(
+# #     list(zip(data['arcs_e1'], np.zeros(len(data['arcs_e1'])))),
+# #     columns = ['arc', 'c_transp'])
+# # df_arcs_e2 = pd.DataFrame.from_dict(data['arcs_e2'], orient = 'index', columns =['c_transp'])
+# # df_arcs_e3 = pd.DataFrame.from_dict(data['arcs_e3'], orient = 'index', columns =['c_transp'])
+# # df_c_transp = pd.concat([df_arcs_e2, df_arcs_e3])
+# # df_c_transp.reset_index(inplace=True)
+# # df_c_transp.rename(columns={'index': 'arc'}, inplace=True)
+# # df_c_transp = pd.concat([df_arcs_e1, df_c_transp])
 
-# # merge to flow_cost
-# df_flow_cost = pd.merge(df_flows, df_c_transp, on='arc', how='outer')
+# # # merge to flow_cost
+# # df_flow_cost = pd.merge(df_flows, df_c_transp, on='arc', how='outer')
 
-collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
-c_transp = {**{arc:0 for arc in arcs_e1}, **arcs_e2, **arcs_e3}
-df_flows['c_transport'] = df_flows['arc'].map(c_transp)
-df_flows['c_buy'] = df_flows['destination'].map(c_buy)
+# collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
+# c_transp = {**{arc:0 for arc in arcs_e1}, **arcs_e2, **arcs_e3}
+# df_flows['c_transport'] = df_flows['arc'].map(c_transp)
+# df_flows['c_buy'] = df_flows['destination'].map(c_buy)
 
 
-# # Run de model from a json file in /data dolder
-# data_json = read_data_json(r'../data/data.json')   
-# model = create_model(data_json)
+# # # Run de model from a json file in /data dolder
+# # data_json = read_data_json(r'../data/data.json')   
+# # model = create_model(data_json)
 
 
 
 
     
-# flow_e1 = model.addVars(arcs_e1, time,  name="flow_e1")
-# flow_e2 = model.addVars(arcs_e2, time,  name="flow_e2")
-# flow_e3 = model.addVars(arcs_e3, time,  name="flow_e3")
-# activ = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ")
-# activ_f = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ_f")
-# stock = model.addVars(collectors, time, name="stock")
-# trips_e2 = model.addVars(arcs_e2, time,  vtype=gp.GRB.INTEGER, name="trips_e2")
-# trips_e3 
+# # flow_e1 = model.addVars(arcs_e1, time,  name="flow_e1")
+# # flow_e2 = model.addVars(arcs_e2, time,  name="flow_e2")
+# # flow_e3 = model.addVars(arcs_e3, time,  name="flow_e3")
+# # activ = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ")
+# # activ_f = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ_f")
+# # stock = model.addVars(collectors, time, name="stock")
+# # trips_e2 = model.addVars(arcs_e2, time,  vtype=gp.GRB.INTEGER, name="trips_e2")
+# # trips_e3 
 
-# # 4. Print solution
-# if model.Status == GRB.OPTIMAL:
-#     # facility activation
-#     activ_f_sol = model.getAttr('X', model.activ_f)
-#     for c in collectors:
-#         for t in time:
-#             if activ_f_sol[c,t] > 0:
-#                 print('activ_f(%s,  %s): %g' % (c, t, activ_f_sol[c,t]))
-#     activ_sol = model.getAttr('X', model.activ)
-#     for c in collectors:
-#         for t in time:
-#             if activ_sol[c,t] > 0:
-#                 print('activ(%s,  %s): %g' % (c, t, activ_sol[c,t]))
-#     # flows from regions to collections
-#     print("Flow from regions to colllectors")
-#     flow_e1_sol = model.getAttr('X', model.flow_e1)
-#     for r,c,t in model.flow_e1:
-#         if flow_e1_sol[r,c,t]> 0:
-#             print('flow_e1(%s,  %s, %s): %g' % (r, c, t, flow_e1_sol[r,c,t])) 
-#     print("Flow collectors to transformers")
-#     flow_e2_sol = model.getAttr('X', model.flow_e2)
-#     for c,m,t in model.flow_e2:
-#         if flow_e2_sol[c,m,t]> 0:
-#             print('flow_e2(%s,  %s, %s): %g' % (c,m,t, flow_e2_sol[c,m,t])) 
-#     print("Flow transformers to producers")
-#     flow_e3_sol = model.getAttr('X', model.flow_e3)
-#     for m,p,t in model.flow_e3:
-#         if flow_e3_sol[m,p,t]> 0:
-#             print('flow_e3(%s,  %s, %s): %g' % (m,p,t, flow_e3_sol[m,p,t])) 
-#     print("Trips collectors  to transformers")
-#     trips_e2_sol = model.getAttr('X', model.trips_e2)
-#     for c,m,t in model.trips_e2:
-#         if trips_e2_sol[c,m,t]> 0:
-#             print('trips_e2(%s,  %s, %s): %g' % (c,m,t, trips_e2_sol[c,m,t]))
-#     print("Trips transformers to producers")
-#     trips_e3_sol = model.getAttr('X', model.trips_e3)
-#     for m,p,t in model.trips_e3:
-#         if flow_e3_sol[m,p,t]> 0:
-#             print('trips_e3(%s,  %s, %s): %g' % (m,p,t, trips_e3_sol[m,p,t])) 
+# # # 4. Print solution
+# # if model.Status == GRB.OPTIMAL:
+# #     # facility activation
+# #     activ_f_sol = model.getAttr('X', model.activ_f)
+# #     for c in collectors:
+# #         for t in time:
+# #             if activ_f_sol[c,t] > 0:
+# #                 print('activ_f(%s,  %s): %g' % (c, t, activ_f_sol[c,t]))
+# #     activ_sol = model.getAttr('X', model.activ)
+# #     for c in collectors:
+# #         for t in time:
+# #             if activ_sol[c,t] > 0:
+# #                 print('activ(%s,  %s): %g' % (c, t, activ_sol[c,t]))
+# #     # flows from regions to collections
+# #     print("Flow from regions to colllectors")
+# #     flow_e1_sol = model.getAttr('X', model.flow_e1)
+# #     for r,c,t in model.flow_e1:
+# #         if flow_e1_sol[r,c,t]> 0:
+# #             print('flow_e1(%s,  %s, %s): %g' % (r, c, t, flow_e1_sol[r,c,t])) 
+# #     print("Flow collectors to transformers")
+# #     flow_e2_sol = model.getAttr('X', model.flow_e2)
+# #     for c,m,t in model.flow_e2:
+# #         if flow_e2_sol[c,m,t]> 0:
+# #             print('flow_e2(%s,  %s, %s): %g' % (c,m,t, flow_e2_sol[c,m,t])) 
+# #     print("Flow transformers to producers")
+# #     flow_e3_sol = model.getAttr('X', model.flow_e3)
+# #     for m,p,t in model.flow_e3:
+# #         if flow_e3_sol[m,p,t]> 0:
+# #             print('flow_e3(%s,  %s, %s): %g' % (m,p,t, flow_e3_sol[m,p,t])) 
+# #     print("Trips collectors  to transformers")
+# #     trips_e2_sol = model.getAttr('X', model.trips_e2)
+# #     for c,m,t in model.trips_e2:
+# #         if trips_e2_sol[c,m,t]> 0:
+# #             print('trips_e2(%s,  %s, %s): %g' % (c,m,t, trips_e2_sol[c,m,t]))
+# #     print("Trips transformers to producers")
+# #     trips_e3_sol = model.getAttr('X', model.trips_e3)
+# #     for m,p,t in model.trips_e3:
+# #         if flow_e3_sol[m,p,t]> 0:
+# #             print('trips_e3(%s,  %s, %s): %g' % (m,p,t, trips_e3_sol[m,p,t])) 
 
             
 
-# # model.update()
-# # constraint = constr_relat2['c3',2]
-# # constraint_expr = model.getRow(constraint)
-# # # Print the mathematical expression of the constraint
-# # sense = constraint.getAttr(gp.GRB.Attr.Sense)
-# # rhs = constraint.getAttr(gp.GRB.Attr.RHS)
+# # # model.update()
+# # # constraint = constr_relat2['c3',2]
+# # # constraint_expr = model.getRow(constraint)
+# # # # Print the mathematical expression of the constraint
+# # # sense = constraint.getAttr(gp.GRB.Attr.Sense)
+# # # rhs = constraint.getAttr(gp.GRB.Attr.RHS)
 
-# # expr_str = f"{constraint_expr} {sense} {rhs}"
-# # print(expr_str)
+# # # expr_str = f"{constraint_expr} {sense} {rhs}"
+# # # print(expr_str)
 
