@@ -1,2 +1,6 @@
 
 *.ini
+*.bak
+*.pyc
+.spyproject/config/backups/workspace.ini.bak
+*.bak

@@ -1,35 +1,12 @@
 # 1. import the libraries
 import gurobipy as gp
 from gurobipy import GRB
-import json
-
-
-# read dat from file
-def red_data_json(file_path):
-    # Read the JSON file
-    with open(file_path, "r") as json_file:
-        json_data = json.load(json_file)
-    
-    data = {
-            'regions': json_data['regions'],
-            'collectors': json_data['collectors'],
-            'manufs': json_data['manufs'],
-            'producers': json_data['producers'],
-            'time': json_data['time'],
-            'arcs_e1': [tuple(k) for k in json_data['arcs_e1']],
-            'arcs_e2': {tuple(eval(k)): v for k,v in json_data['arcs_e2'].items()},
-            'arcs_e3': {tuple(eval(k)): v for k,v in json_data['arcs_e3'].items()},
-            'gen' : {(eval(k)): v for k,v in json_data['gen'].items()},
-            'demP' : {tuple(eval(k)): v for k,v in json_data['demP'].items()},
-            'dt': json_data['dt'],
-            'capV': json_data['capV']
-            }
-    return data
+from utilities import read_data_json
+from optimize import create_model
 
 
 
 
-    
 
 # 2. basic data
 
@@ -112,9 +89,7 @@ dt = 2
 capV = 100
 
 
-
-
-
+# group data into a dictionary
 data = {
         'regions': regions,
         'collectors': collectors,
@@ -131,163 +106,18 @@ data = {
         }
 
 
-
-
-
-
-
-
-# 3. modelling
-# 3.1. create a new model
-def create_model(data):
-    
-    # desagregate data
-    
-    # c_buy: buying cost
-    # c_clasif: cost of classigying at collection center
-    # c_activ: collection center activation cost
-    # c_hold: cost of holding aty the collection center
-    # capC: classification capacity
-    # capS: sortage capacity
-    # inisS: initial stock at the collection center
-    collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
-    
-    # c_clean: cost of cleaning at transformer
-    # capM: casssification capacity
-    manufs, c_clean, capM  = gp.multidict(data['manufs'])
-
-    regions = data['regions']
-    producers = data['producers']
-    time = data['time']
-    
-    # Sparse network
-    # echelon 1 (regions to collections centers)
-    arcs_e1 = gp.tuplelist(data['arcs_e1'])
-
-    # echelon 2 (collection centers to manufacturers)
-    arcs_e2, cost_e2 = gp.multidict(data['arcs_e2'])
-
-    # echelon 3 (manufaturers to producers)
-    arcs_e3, cost_e3 = gp.multidict(data['arcs_e3'])
-
-
-    # 2.5 generation and demands
-    # generation in each region
-    gen = data['gen']
-    demP = data['demP']
-    dt = data['dt']
-    capV = data['capV']
-
-    
-    
-    model = gp.Model('returnability')
-    
-    # 3.2. create variables
-    flow_e1 = model.addVars(arcs_e1, time,  name="flow_e1")
-    flow_e2 = model.addVars(arcs_e2, time,  name="flow_e2")
-    flow_e3 = model.addVars(arcs_e3, time,  name="flow_e3")
-    activ = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ")
-    activ_f = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ_f")
-    stock = model.addVars(collectors, time, name="stock")
-    trips_e2 = model.addVars(arcs_e2, time,  vtype=gp.GRB.INTEGER, name="trips_e2")
-    trips_e3 = model.addVars(arcs_e3, time,  vtype=gp.GRB.INTEGER, name="trips_e3")
-    
-    # 3.3. create the objective function
-    obj = gp.LinExpr()
-    # buying and classification cost
-    for r,c,t in flow_e1:
-        obj += c_buy[c]*flow_e1[r,c,t] + c_clasif[c]*flow_e1[r,c,t]
-        
-    # transforming (cleaning)
-    for m,p,t in flow_e3:
-        obj += c_clean[m]*flow_e3[m,p,t] 
-    
-    # collection center activation cost and inventory holding
-    for c,t in [(c,t) for c in collectors for t in time]:
-        obj += c_activ[c]*activ[c,t] + c_hold[c]*stock[c,t]
-    
-    # transport from collections to transformers
-    for c,m,t in flow_e2:
-        obj += cost_e2[c,m]*trips_e2[c,m,t]
-        
-    
-    # transport from transformers to producers 
-    for m,p,t in flow_e3:
-        obj += cost_e3[m,p]*trips_e3[m,p,t]
-        
-    # set the objective 
-    model.setObjective(obj, GRB.MINIMIZE)
-    
-    # 3.4. Constraints
-    
-    # classification capacity
-    constr_capC = model.addConstrs(
-        (flow_e1.sum('*', c, t) <= capC[c]*activ[c,t] for c in collectors for t in time), "capC")
-    
-    # generation at each region
-    constr_gen = model.addConstrs(
-        (flow_e1.sum(r, '*', t) <= gen[r,t]  for r in regions for t in time), "gen")
-    
-    # storage capacity
-    constr_capS = model.addConstrs(
-        (stock[c,t]<=capS[c] for c in collectors for t in time), "capS")
-    
-    # transformer capacity
-    constr_capM = model.addConstrs(
-        (flow_e2.sum('*', m, t) <= capM[m] for m in manufs for t in time), "capM")
-    
-    # stock balance
-    def prev_stock(c,t):
-        if t <= 1:
-            return iniS[c]
-        return stock[c,t]
-        
-    cosntr_stock = model.addConstrs(
-        (stock[c,t] == prev_stock(c,t) + flow_e1.sum('*', c, t) - flow_e2.sum(c,'*', t) for c in collectors for t in time), "stock")
-    
-    
-    # demand fulfillment
-    constr_demP = model.addConstrs(
-        (flow_e3.sum('*',p, t) >= demP[p,t] for p in producers for t in time), "demP")
-    
-    # commercial relationship
-    constr_relat1 = model.addConstrs(
-        (activ[c,t] >= activ_f[c,t1] for c in collectors for t1 in time for t in range(t1, min(t1+dt, len(time)))))
-    
-    def prev_actv(c, t):
-        if t <=1:
-            return 0
-        return activ[c,t-1]    
-    constr_relat2 = model.addConstrs(
-        (activ_f[c,t]>=activ[c,t] - prev_actv(c, t) for c in collectors for t in time), "relat2"
-        )
-    
-    constr_manu_bal = model.addConstrs(
-        (flow_e2.sum('*', m, t) == flow_e3.sum(m, '*', t) for m in manufs for t in time), "relat1"
-        )
-    
-    # round up trips
-    constr_trips_e2 = model.addConstrs(
-        (trips_e2[c,m,t] >=3 for c in collectors for m in manufs for t in time), "trips_e2"
-        )
-    
-    # round up trips
-    constr_trips_e3 = model.addConstrs(
-        (trips_e3[m,p,t] >= flow_e3[m,p,t] / capV for m in manufs for p in producers for t in time), "trips_e3"
-        )
-    
-    return model
-
 # create from data entered manually
 model = create_model(data)
 
-# created from json
-data_json = red_data_json(r'../data/data.json')   
+# Run de model from a json file in /data dolder
+data_json = read_data_json(r'../data/data.json')   
 model = create_model(data_json)
+
+
 # 3.5 optimize the model
 model.optimize()
 
-model.update()
+
 
 for var in model.getVars():
         print(f"{var.varName}: {var.x}")
