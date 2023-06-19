@@ -7,6 +7,7 @@ Created on Mon Jun 19 10:02:22 2023
 import gurobipy as gp
 from gurobipy import GRB
 import pandas as pd
+import re
 
 def create_model(data):
     
@@ -145,8 +146,31 @@ def create_model(data):
         (trips_e3[m,p,t] >= flow_e3[m,p,t] / capV for m in manufs for p in producers for t in time), "trips_e3"
         )
     
+    
     return model
 
 def solve_model(model):
-    df = pd.DataFrame()
-    return df 
+    # optimize the model
+    model.optimize()
+
+    # get solution
+    if model.Status == GRB.OPTIMAL:
+        flows = []
+        network = []
+        for var in model.getVars():
+            row = []    
+            row.append(var.VarName.split('[')[0])
+            indexes = re.findall(r'\[(.*?)\]', var.VarName)[0].split(',')
+            #indexes = re.findall(r'\d', var.VarName.split('[')[1])
+            [row.append(index) for index in indexes]
+            row.append(var.X)
+            if any(name in var.VarName for name in ['flow_e1', 'flow_e2', 'flow_e3', 'trips_e2', 'trips_e3']):
+                flows.append(row)
+            else:
+                network.append(row)
+        # Create data frames with the solution
+        flow_vars = pd.DataFrame.from_records(flows, columns=['name', 'origin', 'destination', 'period', 'value'])
+        nd_vars = pd.DataFrame.from_records(network, columns=['name', 'facility', 'period', 'value'])
+        return "Optimal", flow_vars,  nd_vars
+    else:
+        return "non-optimal", None, None
