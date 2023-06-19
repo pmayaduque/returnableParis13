@@ -35,23 +35,18 @@ time = [1, 2, 3, 4]
 
 # Sparse network
 # echelon 1 (regions to collections centers)
-arcs_e1 = [('r1', 'c1'), 
-                        ('r1', 'c2'),
-                        ('r1', 'c3'),
-                        ('r2', 'c1'), 
-                        ('r2', 'c2'),
-                        ('r2', 'c3')]
-
-# echelon 2 (collection centers to manufacturers)
-arcs_e2 = {    ('c1', 'm1'):   100,
-    ('c1', 'm2'):   90,
-    ('c2', 'm1'):   80,
-    ('c2', 'm2'):   15,
-    ('c3', 'm1'):   35,
-    ('c3', 'm2'):   28}
-
-# echelon 3 (manufaturers to producers)
-arcs_e3= {
+arcs = {('r1', 'c1'): 0, 
+       ('r1', 'c2'): 0,
+       ('r1', 'c3'): 0,
+       ('r2', 'c1'): 0, 
+       ('r2', 'c2'): 0,
+       ('r2', 'c3'): 0,
+       ('c1', 'm1'):   100,
+       ('c1', 'm2'):   90,
+       ('c2', 'm1'):   80,
+       ('c2', 'm2'):   15,
+       ('c3', 'm1'):   35,
+       ('c3', 'm2'):   28,
     ('m1', 'p1'):   100,
     ('m1', 'p2'):   90,
     ('m1', 'p3'):   80,
@@ -97,9 +92,7 @@ data = {
         'manufs': manufs,
         'producers': producers,
         'time': time,
-        'arcs_e1': arcs_e1,
-        'arcs_e2': arcs_e2,
-        'arcs_e3': arcs_e3,
+        'arcs': arcs,
         'gen': gen,
         'demP': demP,
         'dt': dt,

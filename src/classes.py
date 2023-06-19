@@ -35,14 +35,9 @@ class Instance:
 
    
     # Sparse network
-    # echelon 1 (regions to collections centers)
-    self.arcs_e1 = gp.tuplelist(data['arcs_e1'])
+    self.arcs, self.c_transp = gp.multidict(data['arcs'])
 
-    # echelon 2 (collection centers to manufacturers)
-    self.arcs_e2, self.cost_e2 = gp.multidict(data['arcs_e2'])
 
-    # echelon 3 (manufaturers to producers)
-    self.arcs_e3, self.cost_e3 = gp.multidict(data['arcs_e3'])
     
     self.gen = data['gen']
     self.demP = data['demP']

@@ -69,11 +69,8 @@ def create_model(instance):
     iniS = instance.iniS 
     c_clean = instance.c_clean
     capM = instance.capM
-    arcs_e1 = instance.arcs_e1
-    arcs_e2 = instance.arcs_e2
-    arcs_e3 = instance.arcs_e3
-    cost_e2 = instance.cost_e2
-    cost_e3 = instance.cost_e3
+    arcs = instance.arcs
+    c_transp = instance.c_transp
     gen = instance.gen
     demP= instance.demP
     dt = instance.dt
@@ -82,37 +79,38 @@ def create_model(instance):
     model = gp.Model('returnability')
     
     # 3.2. create variables
-    flow_e1 = model.addVars(arcs_e1, time,  name="flow_e1")
-    flow_e2 = model.addVars(arcs_e2, time,  name="flow_e2")
-    flow_e3 = model.addVars(arcs_e3, time,  name="flow_e3")
+    flow = model.addVars(arcs, time,  name="flow")
     activ = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ")
     activ_f = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ_f")
     stock = model.addVars(collectors, time, name="stock")
-    trips_e2 = model.addVars(arcs_e2, time,  vtype=gp.GRB.INTEGER, name="trips_e2")
-    trips_e3 = model.addVars(arcs_e3, time,  vtype=gp.GRB.INTEGER, name="trips_e3")
+    trips = model.addVars(arcs, time,  vtype=gp.GRB.INTEGER, name="trip")
     
     # 3.3. create the objective function
     obj = gp.LinExpr()
     # buying and classification cost
-    for r,c,t in flow_e1:
-        obj += c_buy[c]*flow_e1[r,c,t] + c_clasif[c]*flow_e1[r,c,t]
+    for r,c,t in flow:
+        if r in regions and c in collectors:
+            obj += c_buy[c]*flow[r,c,t] + c_clasif[c]*flow[r,c,t]
         
     # transforming (cleaning)
-    for m,p,t in flow_e3:
-        obj += c_clean[m]*flow_e3[m,p,t] 
+    for m,p,t in flow:
+        if m in manufs and p in producers:
+            obj += c_clean[m]*flow[m,p,t] 
     
     # collection center activation cost and inventory holding
     for c,t in [(c,t) for c in collectors for t in time]:
         obj += c_activ[c]*activ[c,t] + c_hold[c]*stock[c,t]
     
     # transport from collections to transformers
-    for c,m,t in flow_e2:
-        obj += cost_e2[c,m]*trips_e2[c,m,t]
+    for c,m,t in flow:
+        if c in collectors and m in manufs:
+            obj += c_transp[c,m]*trips[c,m,t]
         
     
     # transport from transformers to producers 
-    for m,p,t in flow_e3:
-        obj += cost_e3[m,p]*trips_e3[m,p,t]
+    for m,p,t in flow:
+        if m in manufs and p in producers:
+            obj += c_transp[m,p]*trips[m,p,t]
         
     # set the objective 
     model.setObjective(obj, GRB.MINIMIZE)
@@ -121,11 +119,11 @@ def create_model(instance):
     
     # classification capacity
     constr_capC = model.addConstrs(
-        (flow_e1.sum('*', c, t) <= capC[c]*activ[c,t] for c in collectors for t in time), "capC")
+        (flow.sum('*', c, t) <= capC[c]*activ[c,t] for c in collectors for t in time), "capC")
     
     # generation at each region
     constr_gen = model.addConstrs(
-        (flow_e1.sum(r, '*', t) <= gen[r,t]  for r in regions for t in time), "gen")
+        (flow.sum(r, '*', t) <= gen[r,t]  for r in regions for t in time), "gen")
     
     # storage capacity
     constr_capS = model.addConstrs(
@@ -133,7 +131,7 @@ def create_model(instance):
     
     # transformer capacity
     constr_capM = model.addConstrs(
-        (flow_e2.sum('*', m, t) <= capM[m] for m in manufs for t in time), "capM")
+        (flow.sum('*', m, t) <= capM[m] for m in manufs for t in time), "capM")
     
     # stock balance
     def prev_stock(c,t):
@@ -142,12 +140,12 @@ def create_model(instance):
         return stock[c,t]
         
     cosntr_stock = model.addConstrs(
-        (stock[c,t] == prev_stock(c,t) + flow_e1.sum('*', c, t) - flow_e2.sum(c,'*', t) for c in collectors for t in time), "stock")
+        (stock[c,t] == prev_stock(c,t) + flow.sum('*', c, t) - flow.sum(c,'*', t) for c in collectors for t in time), "stock")
     
     
     # demand fulfillment
     constr_demP = model.addConstrs(
-        (flow_e3.sum('*',p, t) >= demP[p,t] for p in producers for t in time), "demP")
+        (flow.sum('*',p, t) >= demP[p,t] for p in producers for t in time), "demP")
     
     # commercial relationship
     constr_relat1 = model.addConstrs(
@@ -162,17 +160,17 @@ def create_model(instance):
         )
     
     constr_manu_bal = model.addConstrs(
-        (flow_e2.sum('*', m, t) == flow_e3.sum(m, '*', t) for m in manufs for t in time), "relat1"
+        (flow.sum('*', m, t) == flow.sum(m, '*', t) for m in manufs for t in time), "relat1"
         )
     
     # round up trips
     constr_trips_e2 = model.addConstrs(
-        (trips_e2[c,m,t] >=3 for c in collectors for m in manufs for t in time), "trips_e2"
+        (trips[c,m,t] >=3 for c in collectors for m in manufs for t in time), "trips_e2"
         )
     
     # round up trips
     constr_trips_e3 = model.addConstrs(
-        (trips_e3[m,p,t] >= flow_e3[m,p,t] / capV for m in manufs for p in producers for t in time), "trips_e3"
+        (trips[m,p,t] >= flow[m,p,t] / capV for m in manufs for p in producers for t in time), "trips_e3"
         )
     
     return model
