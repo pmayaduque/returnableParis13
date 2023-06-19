@@ -28,3 +28,11 @@ def read_data_json(file_path):
             'capV': json_data['capV']
             }
     return data
+
+def expand_data(data):
+    data_e = 0
+    return data_e
+
+def solution_checker(data, sol_dict, df_flows, df_network):
+    
+    return True

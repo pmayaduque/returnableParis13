@@ -152,9 +152,17 @@ def create_model(data):
 def solve_model(model):
     # optimize the model
     model.optimize()
+    
+    return model
+
+def get_results(model):
 
     # get solution
     if model.Status == GRB.OPTIMAL:
+        dict_sol ={
+            'obj_val': model.ObjVal,
+            'runTime': model.Runtime,
+            'gap': model.MIPGap}
         flows = []
         network = []
         for var in model.getVars():
@@ -171,6 +179,6 @@ def solve_model(model):
         # Create data frames with the solution
         flow_vars = pd.DataFrame.from_records(flows, columns=['name', 'origin', 'destination', 'period', 'value'])
         nd_vars = pd.DataFrame.from_records(network, columns=['name', 'facility', 'period', 'value'])
-        return "Optimal", flow_vars,  nd_vars
+        return "Optimal", dict_sol, flow_vars,  nd_vars
     else:
-        return "non-optimal", None, None
+        return "non-optimal", None, None, None

@@ -2,7 +2,7 @@
 import gurobipy as gp
 from gurobipy import GRB
 from utilities import read_data_json
-from optimize import create_model, solve_model
+from optimize import create_model, solve_model, get_results
 import re
 import pandas as pd
 
@@ -107,7 +107,9 @@ data = {
 
 # 2. create from data entered manually
 model = create_model(data)
-status, flows, network = solve_model(model)
+solve_model(model)
+status, dict_sol, flows, network = get_results(model)
+
 
 # # Run de model from a json file in /data dolder
 # data_json = read_data_json(r'../data/data.json')   
