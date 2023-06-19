@@ -6,49 +6,78 @@ Created on Mon Jun 19 10:02:22 2023
 """
 import gurobipy as gp
 from gurobipy import GRB
+from utilities import expand_data
+from classes import Solution
 import pandas as pd
 import re
 
-def create_model(data):
+
+def create_model(instance):
     
-    # desagregate data
+    # # # desagregate data
     
-    # c_buy: buying cost
-    # c_clasif: cost of classigying at collection center
-    # c_activ: collection center activation cost
-    # c_hold: cost of holding aty the collection center
-    # capC: classification capacity
-    # capS: sortage capacity
-    # inisS: initial stock at the collection center
-    collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
+    # # c_buy: buying cost
+    # # c_clasif: cost of classigying at collection center
+    # # c_activ: collection center activation cost
+    # # c_hold: cost of holding aty the collection center
+    # # capC: classification capacity
+    # # capS: sortage capacity
+    # # inisS: initial stock at the collection center
+    # collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
     
-    # c_clean: cost of cleaning at transformer
-    # capM: casssification capacity
-    manufs, c_clean, capM  = gp.multidict(data['manufs'])
+    # # c_clean: cost of cleaning at transformer
+    # # capM: casssification capacity
+    # manufs, c_clean, capM  = gp.multidict(data['manufs'])
 
-    regions = data['regions']
-    producers = data['producers']
-    time = data['time']
+    # regions = data['regions']
+    # producers = data['producers']
+    # time = data['time']
     
-    # Sparse network
-    # echelon 1 (regions to collections centers)
-    arcs_e1 = gp.tuplelist(data['arcs_e1'])
+    # # Sparse network
+    # # echelon 1 (regions to collections centers)
+    # arcs_e1 = gp.tuplelist(data['arcs_e1'])
 
-    # echelon 2 (collection centers to manufacturers)
-    arcs_e2, cost_e2 = gp.multidict(data['arcs_e2'])
+    # # echelon 2 (collection centers to manufacturers)
+    # arcs_e2, cost_e2 = gp.multidict(data['arcs_e2'])
 
-    # echelon 3 (manufaturers to producers)
-    arcs_e3, cost_e3 = gp.multidict(data['arcs_e3'])
+    # # echelon 3 (manufaturers to producers)
+    # arcs_e3, cost_e3 = gp.multidict(data['arcs_e3'])
 
 
-    # 2.5 generation and demands
-    # generation in each region
-    gen = data['gen']
-    demP = data['demP']
-    dt = data['dt']
-    capV = data['capV']
-
+    # # 2.5 generation and demands
+    # # generation in each region
+    # gen = data['gen']
+    # demP = data['demP']
+    # dt = data['dt']
+    # capV = data['capV']
     
+    # regions, collectors, manufs, producers, time, c_buy, c_clasif, \
+    #     c_activ, c_hold, capC, capS, iniS, c_clean, capM, arcs_e1, arcs_e2, \
+    #     arcs_e3, cost_e2,  cost_e3, gen, demP, dt, capV  = expand_data(data)
+    
+    regions = instance.regions
+    collectors = instance.collectors
+    manufs = instance.manufs
+    producers= instance.producers
+    time= instance.time
+    c_buy= instance.c_buy
+    c_clasif = instance.c_clasif
+    c_activ = instance.c_activ
+    c_hold = instance.c_hold
+    capC = instance.capC
+    capS = instance.capS
+    iniS = instance.iniS 
+    c_clean = instance.c_clean
+    capM = instance.capM
+    arcs_e1 = instance.arcs_e1
+    arcs_e2 = instance.arcs_e2
+    arcs_e3 = instance.arcs_e3
+    cost_e2 = instance.cost_e2
+    cost_e3 = instance.cost_e3
+    gen = instance.gen
+    demP= instance.demP
+    dt = instance.dt
+    capV  = instance.capV
     
     model = gp.Model('returnability')
     
@@ -146,7 +175,6 @@ def create_model(data):
         (trips_e3[m,p,t] >= flow_e3[m,p,t] / capV for m in manufs for p in producers for t in time), "trips_e3"
         )
     
-    
     return model
 
 def solve_model(model):
@@ -155,7 +183,7 @@ def solve_model(model):
     
     return model
 
-def get_results(model):
+def get_results(model, instance):
 
     # get solution
     if model.Status == GRB.OPTIMAL:
@@ -177,8 +205,9 @@ def get_results(model):
             else:
                 network.append(row)
         # Create data frames with the solution
-        flow_vars = pd.DataFrame.from_records(flows, columns=['name', 'origin', 'destination', 'period', 'value'])
-        nd_vars = pd.DataFrame.from_records(network, columns=['name', 'facility', 'period', 'value'])
-        return "Optimal", dict_sol, flow_vars,  nd_vars
+        df_flows = pd.DataFrame.from_records(flows, columns=['name', 'origin', 'destination', 'period', 'value'])
+        df_network = pd.DataFrame.from_records(network, columns=['name', 'facility', 'period', 'value'])
+        solution = Solution(instance, dict_sol, df_flows, df_network)
+        return "Optimal", solution
     else:
-        return "non-optimal", None, None, None
+        return "non-optimal", None

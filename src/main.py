@@ -3,8 +3,10 @@ import gurobipy as gp
 from gurobipy import GRB
 from utilities import read_data_json
 from optimize import create_model, solve_model, get_results
+from classes import Instance, Solution
 import re
 import pandas as pd
+import numpy as np
 
 
 # 1. basic instance of data
@@ -105,10 +107,47 @@ data = {
         }
 
 
-# 2. create from data entered manually
-model = create_model(data)
+# 2. create instance from data entered manually
+instance = Instance(data)
+model = create_model(instance)
+
+# 3. solve model and get results
 solve_model(model)
-status, dict_sol, flows, network = get_results(model)
+status, solution = get_results(model, instance)
+
+# 4. Check solution
+validation = solution.solution_checker()
+
+
+
+# add arc column to df_flows
+df_flows = solution.df_flows
+df_flows['arc'] = list(zip(df_flows['origin'], df_flows['destination']))
+collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
+c_transp = {**{arc:0 for arc in arcs_e1}, **arcs_e2, **arcs_e3}
+
+#df_flows_agg = df_flows.groupby(['arc'], as_index=False).agg(
+    #total_flow = ('value', sum))
+# create a dataframe with the costs of flow in each arc
+
+# # agregated transportation costs in a single dataframe
+# df_arcs_e1 = pd.DataFrame.from_records(
+#     list(zip(data['arcs_e1'], np.zeros(len(data['arcs_e1'])))),
+#     columns = ['arc', 'c_transp'])
+# df_arcs_e2 = pd.DataFrame.from_dict(data['arcs_e2'], orient = 'index', columns =['c_transp'])
+# df_arcs_e3 = pd.DataFrame.from_dict(data['arcs_e3'], orient = 'index', columns =['c_transp'])
+# df_c_transp = pd.concat([df_arcs_e2, df_arcs_e3])
+# df_c_transp.reset_index(inplace=True)
+# df_c_transp.rename(columns={'index': 'arc'}, inplace=True)
+# df_c_transp = pd.concat([df_arcs_e1, df_c_transp])
+
+# # merge to flow_cost
+# df_flow_cost = pd.merge(df_flows, df_c_transp, on='arc', how='outer')
+
+collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
+c_transp = {**{arc:0 for arc in arcs_e1}, **arcs_e2, **arcs_e3}
+df_flows['c_transport'] = df_flows['arc'].map(c_transp)
+df_flows['c_buy'] = df_flows['destination'].map(c_buy)
 
 
 # # Run de model from a json file in /data dolder
