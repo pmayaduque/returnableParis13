@@ -19,8 +19,8 @@ import numpy as np
 # capS: sortage capacity
 # inisS: initial stock at the collection center
 collectors = {'c1': [100, 10, 100, 1, 300, 900, 1],
-     'c2': [90, 9, 100, 1, 250, 250, 1],
-     'c3': [80, 8, 100, 1, 300, 600, 1]}
+              'c2': [90, 9, 100, 1, 250, 250, 1],
+              'c3': [80, 8, 100, 1, 300, 600, 1]}
 
 
 # c_clean: cost of cleaning at transformer
@@ -114,7 +114,7 @@ solve_model(model)
 status, solution = get_results(model, instance)
 
 # # 4. Check solution
-# validation = solution.solution_checker()
+validation = solution.solution_checker()
 
 
 

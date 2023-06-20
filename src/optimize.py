@@ -9,7 +9,9 @@ from gurobipy import GRB
 from utilities import expand_data
 from classes import Solution
 import pandas as pd
+import numpy as np
 import re
+
 
 
 def create_model(instance):
@@ -85,17 +87,17 @@ def create_model(instance):
     stock = model.addVars(collectors, time, name="stock")
     trips = model.addVars(arcs, time,  vtype=gp.GRB.INTEGER, name="trip")
     
-    # 3.3. create the objective function
+    # # 3.3. create the objective function
     obj = gp.LinExpr()
     # buying and classification cost
     for r,c,t in flow:
         if r in regions and c in collectors:
             obj += c_buy[c]*flow[r,c,t] + c_clasif[c]*flow[r,c,t]
         
-    # transforming (cleaning)
-    for m,p,t in flow:
-        if m in manufs and p in producers:
-            obj += c_clean[m]*flow[m,p,t] 
+    # transforming (cleaning all income bottles)
+    for c,m,t in flow:
+        if c in collectors and m in manufs:
+            obj += c_clean[m]*flow[c,m,t] 
     
     # collection center activation cost and inventory holding
     for c,t in [(c,t) for c in collectors for t in time]:
@@ -137,7 +139,7 @@ def create_model(instance):
     def prev_stock(c,t):
         if t <= 1:
             return iniS[c]
-        return stock[c,t]
+        return stock[c,t-1]
         
     cosntr_stock = model.addConstrs(
         (stock[c,t] == prev_stock(c,t) + flow.sum('*', c, t) - flow.sum(c,'*', t) for c in collectors for t in time), "stock")
@@ -149,7 +151,7 @@ def create_model(instance):
     
     # commercial relationship
     constr_relat1 = model.addConstrs(
-        (activ[c,t] >= activ_f[c,t1] for c in collectors for t1 in time for t in range(t1, min(t1+dt, len(time)))))
+        (activ[c,t] >= activ_f[c,t1] for c in collectors for t1 in time for t in range(t1, min(t1+dt, len(time)))), "relat1")
     
     def prev_actv(c, t):
         if t <=1:
@@ -159,13 +161,14 @@ def create_model(instance):
         (activ_f[c,t]>=activ[c,t] - prev_actv(c, t) for c in collectors for t in time), "relat2"
         )
     
-    constr_manu_bal = model.addConstrs(
-        (flow.sum('*', m, t) == flow.sum(m, '*', t) for m in manufs for t in time), "relat1"
+    # balance at transformers
+    constr_manuf_bal = model.addConstrs(
+        (flow.sum('*', m, t) == flow.sum(m, '*', t) for m in manufs for t in time), "manuf_balanc"
         )
     
     # round up trips
     constr_trips_e2 = model.addConstrs(
-        (trips[c,m,t] >=flow[c,m,t] for c in collectors for m in manufs for t in time), "trips_e2"
+        (trips[c,m,t] >=flow[c,m,t]/capV for c in collectors for m in manufs for t in time), "trips_e2"
         )
     
     # round up trips
@@ -187,10 +190,7 @@ def get_results(model, instance):
 
     # get solution
     if model.Status == GRB.OPTIMAL:
-        dict_sol ={
-            'obj_val': model.ObjVal,
-            'runTime': model.Runtime,
-            'gap': model.MIPGap}
+        # dataframes with variables
         flows = []
         network = []
         for var in model.getVars():
@@ -206,7 +206,56 @@ def get_results(model, instance):
                 network.append(row)
         # Create data frames with the solution
         df_flows = pd.DataFrame.from_records(flows, columns=['name', 'origin', 'destination', 'period', 'value'])
+        df_flows['arc'] = list(zip(df_flows['origin'], df_flows['destination']))
         df_network = pd.DataFrame.from_records(network, columns=['name', 'facility', 'period', 'value'])
+        
+
+        df_flows_o = df_flows[df_flows['name']=='flow']
+        # calculated transport cost       
+        df_flows_o['trips'] = np.ceil((df_flows_o['value']-0.001)/instance.capV)
+        df_flows_o['c_transp'] = df_flows_o['arc'].map(instance.c_transp)*df_flows_o['trips']
+        c_transp = df_flows_o['c_transp'].sum()      
+        c_transp_e2 = df_flows_o[df_flows_o['origin'].isin(instance.collectors)]['c_transp'].sum()
+        c_transp_e3 = df_flows_o[df_flows_o['origin'].isin(instance.manufs)]['c_transp'].sum()
+        # cost of buying and classif
+        df_collect = df_flows[df_flows['destination'].isin(instance.collectors)].groupby(['destination'], as_index= False).agg(total = ('value', sum))
+        df_collect['c_buy'] = df_collect['destination'].map(instance.c_buy)*df_collect['total']
+        df_collect['c_clasif'] = df_collect['destination'].map(instance.c_clasif)*df_collect['total']
+        c_buy = df_collect['c_buy'].sum()
+        c_clasif = df_collect['c_clasif'].sum()
+        # cost of cleaning all incoming bottles
+        df_clean = df_flows_o[df_flows_o['destination'].isin(instance.manufs)].groupby(['destination'], as_index= False).agg(total = ('value', sum))
+        df_clean['c_clean'] = df_clean['destination'].map(instance.c_clean)*df_clean['total']
+        c_clean = df_clean['c_clean'].sum()
+        # cost of activiting facilities
+        df_actv = df_network[df_network['name']=='activ'].groupby(['facility'], as_index=False).agg(count = ('value', sum))
+        df_actv['c_activ'] = df_actv['facility'].map(instance.c_activ)*df_actv['count']
+        c_activ = df_actv['c_activ'].sum()
+        # cost of holding
+        df_stock = df_network[df_network['name']=='stock'].groupby(['facility'], as_index=False).agg(count = ('value', sum))
+        df_stock['c_hold'] = df_stock['facility'].map(instance.c_hold)*df_stock['count']
+        c_hold = df_stock['c_hold'].sum()
+        
+       
+        # dictionary summarising results
+        dict_sol ={
+            'obj_val': model.ObjVal,
+            'runTime': model.Runtime,
+            'gap': model.MIPGap,
+            'c_transp': c_transp,
+            'c_transp_e2': c_transp_e2,
+            'c_transp_e3': c_transp_e3, 
+            'c_total':   c_transp + c_buy + c_clasif + c_clean + c_activ + c_hold, 
+            'q_buy': dict(zip(df_collect['destination'], df_collect['total'])),
+            'c_buy': c_buy,
+            'c_clasif': c_clasif,
+            'q_clean': dict(zip(df_clean['destination'], df_clean['total'])),
+            'c_clean': c_clean,
+            'q_activ': dict(zip(df_actv['facility'], df_actv['count'])),
+            'c_activ': c_activ}
+    
+        
+        # create solution object
         solution = Solution(instance, dict_sol, df_flows, df_network)
         return "Optimal", solution
     else:
