@@ -175,12 +175,12 @@ def create_model(instance):
     
     # maximum coverage
     constr_cov_max = model.addConstrs(
-        (cover_max[t] >= flow.sum(r,'*',t)/gen[r,t] for t in time for r in regions), "cover_max"
+        (cover_max[t] >= flow.sum(r,'*',t)/gen[r,t] for t in time for r in regions), "cov_max"
         )
     
     # minimum coverage
     constr_cov_min = model.addConstrs(
-        (cover_min[t] <= flow.sum(r,'*',t)/gen[r,t] + 1 - cover[r] for t in time for r in regions), "cover_max"
+        (cover_min[t] <= flow.sum(r,'*',t)/gen[r,t] + 1 - cover[r] for t in time for r in regions), "cov_max"
         )
     
     # balance coverage
@@ -221,8 +221,8 @@ def get_results(model, instance):
             row.append(var.VarName.split('[')[0])
             indexes = re.findall(r'\[(.*?)\]', var.VarName)[0].split(',')
             [row.append(index) for index in indexes]
-            if var.VarName == 'cover':
-                row.append(np.NaN) # the variable cover has only one index
+            if 'cover' in var.VarName:
+                row.append(-99) # the variable cover has only one index
             row.append(var.X)
             if any(name in var.VarName for name in ['flow', 'trip']):
                 flows.append(row)
@@ -230,9 +230,10 @@ def get_results(model, instance):
                 network.append(row)
         # Create data frames with the solution
         df_flows = pd.DataFrame.from_records(flows, columns=['name', 'origin', 'destination', 'period', 'value'])
+        df_flows['period'] = df_flows['period'].astype(int)
         df_flows['arc'] = list(zip(df_flows['origin'], df_flows['destination']))
         df_network = pd.DataFrame.from_records(network, columns=['name', 'facility', 'period', 'value'])
-        
+        df_network['period'] = df_network['period'].astype(int)
 
         df_flows_o = df_flows[df_flows['name']=='flow']
         # calculated transport cost       

@@ -6,7 +6,7 @@ Created on Mon Jun 19 16:13:16 2023
 """
 
 import gurobipy as gp
-
+import numpy as np
 
 class Instance:
   def __init__(self, data, name='instance0' ):
@@ -56,10 +56,75 @@ class Solution:
         self.df_flows['arc'] = list(zip(self.df_flows['origin'], self.df_flows['destination']))
         
     def solution_checker(self):
-        c_transp = {**{arc:0 for arc in self.instance.arcs_e1}, **self.instance.cost_e2, **self.instance.cost_e2}
-        self.df_flows['c_transport'] = self.df_flows['arc'].map(c_transp)
-        self.df_flows['c_buy'] = self.df_flows['destination'].map(self.instance.c_buy)
+        # function to compare a value in the df to a value in a dictionary with que (a1,a2)
+        def check_condition(row, dictionary, key):
+            if len(key)==1:
+                return row['value'] <= dictionary[(row[key[0]], row[key[1]])]
+            if len(key)==2:
+                return row['value'] <= dictionary[(row[key[0]], row[key[1]])]
+        
+        # get only the flow variables 
+        flows = self.df_flows[self.df_flows['name']=='flow']
+        network = self.df_network
+        
+        # check objaective function
+        if self.dict_sol['obj_val'] - self.dict_sol['c_total'] >= 0.1:
+            return False
+        
+        # check number of regions covered
+        n_reg = network[network['name']=='cover']['value'].sum()
+        if np.abs(n_reg - self.instance.n_reg) > 0.1:
+            return False
+        
+        # check the capacity at collection centers
+        flow_c = flows[flows['destination'].isin(self.instance.collectors)]
+        flow_c= flow_c.groupby(['destination', 'period'], as_index=False)['value'].sum()
+        condition_mask = flow_c.apply(check_condition, 
+                                      args = (self.instance.capC, ('destination')), axis=1)
+        if not condition_mask.all():
+            return False
+        
+        # check regions geneartion limits
+        flow_r = flows[flows['origin'].isin(self.instance.regions)]
+        flow_r = flow_r.groupby(['origin', 'period'], as_index=False)['value'].sum()
+        condition_mask = flow_r.apply(check_condition, 
+                                      args = (self.instance.gen, ('origin', 'period')), axis=1)
+        if not condition_mask.all():
+            return False
 
+        # check stock capacity
+        network_s = network[network['name']=='stock']
+        network_s.reset_index(inplace=True)
+        condition_mask = network_s.apply(check_condition, 
+                                      args = (self.instance.capS, ('facility')), axis=1)
+        if not condition_mask.all():
+            return False
+        
+        # check the capacity at transformers
+        flow_m = flows[flows['destination'].isin(self.instance.manufs)]
+        flow_m= flow_m.groupby(['destination', 'period'], as_index=False)['value'].sum()
+        condition_mask = flow_m.apply(check_condition, 
+                                      args = (self.instance.capM, ('destination')), axis=1)
+        if not condition_mask.all():
+            return False
+        
+        # check the inventory
+        flow_c_out = flows[flows['origin'].isin(self.instance.collectors)]
+        flow_c_out= flow_c_out.groupby(['origin', 'period'], as_index=False)['value'].sum()
+        
+        a = 1
+        for c in self.instance.collectors:
+            for t in self.instance.time:
+                stockLHS = list(network_s.loc[(network_s['facility'] == c) & (network_s['period'] == t), 'value'])[0]
+                if t == 1:
+                    stockRHS = list([self.instance.iniS[c]])[0]
+                else:
+                    stockRHS = list(network_s.loc[(network_s['facility'] == c) & (network_s['period'] == t-1), 'value'])[0]
+                stockRHS += list(flow_c.loc[(flow_c['destination'] == c) & (flow_c['period'] == t), 'value'])[0]
+                stockRHS -= list(flow_c_out.loc[(flow_c_out['origin'] == c) & (flow_c_out['period'] == t), 'value'])[0]
+                if np.abs(stockLHS - stockRHS) > 0.1:
+                    return False
+  
         
         return True
         
