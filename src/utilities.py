@@ -23,7 +23,9 @@ def read_data_json(file_path):
             'gen' : {(eval(k)): v for k,v in json_data['gen'].items()},
             'demP' : {tuple(eval(k)): v for k,v in json_data['demP'].items()},
             'dt': json_data['dt'],
-            'capV': json_data['capV']
+            'capV': json_data['capV'],
+            'n_reg':json_data['n_reg'],
+            'alpha':json_data['alpha']
             }
     return data
 

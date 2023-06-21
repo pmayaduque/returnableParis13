@@ -43,6 +43,8 @@ class Instance:
     self.demP = data['demP']
     self.dt = data['dt']
     self.capV = data['capV']
+    self.n_reg = data['n_reg']
+    self.alpha = data['alpha']
     
     
 class Solution:

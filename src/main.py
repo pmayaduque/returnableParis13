@@ -28,19 +28,22 @@ collectors = {'c1': [100, 10, 100, 1, 300, 900, 1],
 manufs =    {'m1': [10, 900],
      'm2': [9, 750]}
 
-regions = ['r1', 'r2']
+regions = ['r1', 'r2', 'r3']
 producers = ['p1', 'p2', 'p3']
 time = [1, 2, 3, 4]
 
 
 # Sparse network
 # echelon 1 (regions to collections centers)
-arcs = {('r1', 'c1'): 0, 
+arcs = {#('r1', 'c1'): 0, 
         ('r1', 'c2'): 0,
         ('r1', 'c3'): 0,
         ('r2', 'c1'): 0, 
         ('r2', 'c2'): 0,
         ('r2', 'c3'): 0,
+        ('r3', 'c1'): 0, 
+        ('r3', 'c2'): 0,
+        ('r3', 'c3'): 0,
         ('c1', 'm1'):   100,
         ('c1', 'm2'):   90,
         ('c2', 'm1'):   80,
@@ -63,6 +66,10 @@ gen = {('r1', 1): 500,
        ('r2', 2): 300,
        ('r2', 3): 300,
        ('r2', 4): 300,
+       ('r3', 1): 400,
+       ('r3', 2): 400,
+       ('r3', 3): 400,
+       ('r3', 4): 400,
     }
 
 # demand for each producer
@@ -83,6 +90,10 @@ demP = {('p1',1): 300,
 dt = 2
 # vehicle capacity
 capV = 100
+# number of regions to cover
+n_reg = 2 
+# cover balance
+alpha = 1 
 
 
 # group data into a dictionary
@@ -96,7 +107,9 @@ data = {
         'gen': gen,
         'demP': demP,
         'dt': dt,
-        'capV':capV
+        'capV':capV,
+        'n_reg':n_reg,
+        'alpha':alpha
         }
 
 

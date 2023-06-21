@@ -77,15 +77,21 @@ def create_model(instance):
     demP= instance.demP
     dt = instance.dt
     capV  = instance.capV
+    n_reg = instance.n_reg
+    alpha = instance.alpha
     
     model = gp.Model('returnability')
     
-    # 3.2. create variables
-    flow = model.addVars(arcs, time,  name="flow")
+    # 3.2. create variables    
     activ = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ")
     activ_f = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ_f")
+    cover = model.addVars(regions, vtype=gp.GRB.BINARY, name="cover")
+    cover_max = model.addVars(time,  name="cover_max")
+    cover_min = model.addVars(time,  name="cover_min")
+    flow = model.addVars(arcs, time,  name="flow")
     stock = model.addVars(collectors, time, name="stock")
     trips = model.addVars(arcs, time,  vtype=gp.GRB.INTEGER, name="trip")
+    
     
     # # 3.3. create the objective function
     obj = gp.LinExpr()
@@ -118,6 +124,8 @@ def create_model(instance):
     model.setObjective(obj, GRB.MINIMIZE)
     
     # 3.4. Constraints
+    # number of regions to cover
+    constra_cover = model.addConstr(cover.sum('*') ==n_reg)
     
     # classification capacity
     constr_capC = model.addConstrs(
@@ -125,7 +133,7 @@ def create_model(instance):
     
     # generation at each region
     constr_gen = model.addConstrs(
-        (flow.sum(r, '*', t) <= gen[r,t]  for r in regions for t in time), "gen")
+        (flow.sum(r, '*', t) <= gen[r,t] *cover[r] for r in regions for t in time), "gen")
     
     # storage capacity
     constr_capS = model.addConstrs(
@@ -144,6 +152,10 @@ def create_model(instance):
     cosntr_stock = model.addConstrs(
         (stock[c,t] == prev_stock(c,t) + flow.sum('*', c, t) - flow.sum(c,'*', t) for c in collectors for t in time), "stock")
     
+    # balance at transformers
+    constr_manuf_bal = model.addConstrs(
+        (flow.sum('*', m, t) == flow.sum(m, '*', t) for m in manufs for t in time), "manuf_balanc"
+        )
     
     # demand fulfillment
     constr_demP = model.addConstrs(
@@ -161,10 +173,21 @@ def create_model(instance):
         (activ_f[c,t]>=activ[c,t] - prev_actv(c, t) for c in collectors for t in time), "relat2"
         )
     
-    # balance at transformers
-    constr_manuf_bal = model.addConstrs(
-        (flow.sum('*', m, t) == flow.sum(m, '*', t) for m in manufs for t in time), "manuf_balanc"
+    # maximum coverage
+    constr_cov_max = model.addConstrs(
+        (cover_max[t] >= flow.sum(r,'*',t)/gen[r,t] for t in time for r in regions), "cover_max"
         )
+    
+    # minimum coverage
+    constr_cov_min = model.addConstrs(
+        (cover_min[t] <= flow.sum(r,'*',t)/gen[r,t] + 1 - cover[r] for t in time for r in regions), "cover_max"
+        )
+    
+    # balance coverage
+    constr_cov_bal = model.addConstrs(
+        (cover_max[t] - cover_min[t] <= alpha for t in time), "cover_bal"
+        )
+    
     
     # round up trips
     constr_trips_e2 = model.addConstrs(
@@ -197,8 +220,9 @@ def get_results(model, instance):
             row = []    
             row.append(var.VarName.split('[')[0])
             indexes = re.findall(r'\[(.*?)\]', var.VarName)[0].split(',')
-            #indexes = re.findall(r'\d', var.VarName.split('[')[1])
             [row.append(index) for index in indexes]
+            if var.VarName == 'cover':
+                row.append(np.NaN) # the variable cover has only one index
             row.append(var.X)
             if any(name in var.VarName for name in ['flow', 'trip']):
                 flows.append(row)
