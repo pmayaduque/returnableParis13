@@ -6,7 +6,6 @@ Created on Mon Jun 19 10:02:22 2023
 """
 import gurobipy as gp
 from gurobipy import GRB
-from utilities import expand_data
 from classes import Solution
 import pandas as pd
 import numpy as np

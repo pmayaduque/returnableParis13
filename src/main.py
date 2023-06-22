@@ -1,12 +1,11 @@
 # 1. import the libraries
-import gurobipy as gp
-from gurobipy import GRB
-from utilities import read_data_json
 from optimize import create_model, solve_model, get_results
 from classes import Instance, Solution
-import re
-import pandas as pd
-import numpy as np
+from utilities import instance_generator
+import random 
+random.seed(42)
+
+
 
 
 # 1. basic instance of data
@@ -114,24 +113,26 @@ data = {
         'alpha':alpha
         }
 
+if __name__ == '__main__':
+    # 2. create instance from data entered manually
+    instance = Instance(data)
+    model = create_model(instance)
+    
+    # # Run de model from a json file in /data dolder
+    # data_json = read_data_json(r'../data/data.json') 
+    # instance = Instance(data_json)  
+    # model = create_model(instance)
+    
+    # 3. solve model and get results
+    solve_model(model)
+    status, solution = get_results(model, instance)
+    
+    # # 4. Check solution
+    validation = solution.solution_checker()
 
-# 2. create instance from data entered manually
-instance = Instance(data)
-model = create_model(instance)
-
-# # Run de model from a json file in /data dolder
-# data_json = read_data_json(r'../data/data.json') 
-# instance = Instance(data_json)  
-# model = create_model(instance)
-
-# 3. solve model and get results
-solve_model(model)
-status, solution = get_results(model, instance)
-
-# # 4. Check solution
-validation = solution.solution_checker()
-
-
+    instance1 = instance_generator(4, 4, 4, 4, 4, (1000, 2000), 0.2, 0.3, 0.2, 0.3,\
+                                  100, 0.05, 1)
+    print(instance1)
 
 # # add arc column to df_flows
 # df_flows = solution.df_flows
