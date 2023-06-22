@@ -10,7 +10,7 @@ import numpy as np
 
 
 # 1. basic instance of data
-
+# ci': [c_buy, c_clasif, c_activ, c_hold, capC, capS,inisS]
 # c_buy: buying cost
 # c_clasif: cost of classigying at collection center
 # c_activ: collection center activation cost
@@ -22,11 +22,11 @@ collectors = {'c1': [100, 10, 100, 1, 300, 900, 1],
               'c2': [90, 9, 100, 1, 250, 250, 1],
               'c3': [80, 8, 100, 1, 300, 600, 1]}
 
-
+# mi: [c_clean, capM]
 # c_clean: cost of cleaning at transformer
 # capM: casssification capacity
 manufs =    {'m1': [10, 900],
-     'm2': [9, 750]}
+             'm2': [9, 750]}
 
 regions = ['r1', 'r2', 'r3']
 producers = ['p1', 'p2', 'p3']
@@ -34,8 +34,8 @@ time = [1, 2, 3, 4]
 
 
 # Sparse network
-# echelon 1 (regions to collections centers)
-arcs = {#('r1', 'c1'): 0, 
+# arc -> (origin, destination): cost
+arcs = {('r1', 'c1'): 0, 
         ('r1', 'c2'): 0,
         ('r1', 'c3'): 0,
         ('r2', 'c1'): 0, 
@@ -58,6 +58,7 @@ arcs = {#('r1', 'c1'): 0,
         ('m2', 'p3'):   80}
 
 # generation in each region
+# (region, period): generation
 gen = {('r1', 1): 500,
        ('r1', 2): 500,
        ('r1', 3): 500,
@@ -73,6 +74,7 @@ gen = {('r1', 1): 500,
     }
 
 # demand for each producer
+# (producer, period): demand
 demP = {('p1',1): 300,
         ('p1',2): 300,
         ('p1',3): 300,
@@ -86,14 +88,14 @@ demP = {('p1',1): 300,
         ('p3',3): 100,
         ('p3',4): 100}
 
-# commercial relationship min duration
+# commercial relationship minimum duration
 dt = 2
 # vehicle capacity
 capV = 100
 # number of regions to cover
 n_reg = 2 
 # cover balance
-alpha = 1 
+alpha = 0.3
 
 
 # group data into a dictionary

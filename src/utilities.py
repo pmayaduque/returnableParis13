@@ -7,27 +7,39 @@ Created on Mon Jun 19 09:23:27 2023
 import gurobipy as gp
 import json
 
-# read dat from file
+
 def read_data_json(file_path):
-    # Read the JSON file
+    """
+    Read data from a JSON file and return the extracted information as a dictionary.
+
+    Args:
+        file_path (str): The path to the JSON file.
+
+    Returns:
+        dict: A dictionary containing the extracted data from the JSON file.
+    """
+    # Open the JSON file for reading
     with open(file_path, "r") as json_file:
         json_data = json.load(json_file)
-    
+
+    # Extract required data from the loaded JSON
     data = {
-            'regions': json_data['regions'],
-            'collectors': json_data['collectors'],
-            'manufs': json_data['manufs'],
-            'producers': json_data['producers'],
-            'time': json_data['time'],
-            'arcs': {tuple(eval(k)): v for k,v in json_data['arcs'].items()},
-            'gen' : {(eval(k)): v for k,v in json_data['gen'].items()},
-            'demP' : {tuple(eval(k)): v for k,v in json_data['demP'].items()},
-            'dt': json_data['dt'],
-            'capV': json_data['capV'],
-            'n_reg':json_data['n_reg'],
-            'alpha':json_data['alpha']
-            }
+        'regions': json_data['regions'],
+        'collectors': json_data['collectors'],
+        'manufs': json_data['manufs'],
+        'producers': json_data['producers'],
+        'time': json_data['time'],
+        'arcs': {tuple(eval(k)): v for k, v in json_data['arcs'].items()},
+        'gen': {eval(k): v for k, v in json_data['gen'].items()},
+        'demP': {tuple(eval(k)): v for k, v in json_data['demP'].items()},
+        'dt': json_data['dt'],
+        'capV': json_data['capV'],
+        'n_reg': json_data['n_reg'],
+        'alpha': json_data['alpha']
+    }
+    
     return data
+
 
 def expand_data(data):
     

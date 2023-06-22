@@ -9,7 +9,16 @@ import gurobipy as gp
 import numpy as np
 
 class Instance:
+  """
+    Represents an instance of a mathematical optimization model.
+    
+    Args:
+        data (dict): A dictionary containing the input data for the instance.
+        name (str, optional): The name of the instance. Defaults to 'instance0'.
+  """
   def __init__(self, data, name='instance0' ):
+
+    
     self.name = name
     self.raw_data = data
     
@@ -18,7 +27,8 @@ class Instance:
     self.producers = data['producers']
     self.time = data['time']
     
-    # desagregate data    
+    # desagregate data  
+    
     # c_buy: buying cost
     # c_clasif: cost of classigying at collection center
     # c_activ: collection center activation cost
@@ -33,27 +43,37 @@ class Instance:
     # capM: casssification capacity
     self.manufs, self.c_clean, self.capM  = gp.multidict(data['manufs'])
 
-   
     # Sparse network
     self.arcs, self.c_transp = gp.multidict(data['arcs'])
 
-
     
-    self.gen = data['gen']
-    self.demP = data['demP']
-    self.dt = data['dt']
-    self.capV = data['capV']
-    self.n_reg = data['n_reg']
-    self.alpha = data['alpha']
+    self.gen = data['gen'] # generation in each region at each period
+    self.demP = data['demP'] # demand of each producer at each time
+    self.dt = data['dt'] # number of periods for the collector agreement
+    self.capV = data['capV'] # Vehicle capacity
+    self.n_reg = data['n_reg'] # number of regions
+    self.alpha = data['alpha'] # maximum difference in coverage among regions
     
     
 class Solution:
+    """
+    Represents a solution to a mathematical optimization model.
+    
+    Args:
+        instance (object): An instance object containing the parameters used in the model.
+        dict_sol (dict): A dictionary containing the solution results.
+        df_flows (DataFrame): A DataFrame containing the flow variables of the solution.
+        df_network (DataFrame): A DataFrame containing the network variables of the solution.
+        name (str, optional): The name of the solution. Defaults to 'solution0'.
+    """
     def __init__(self, instance, dict_sol, df_flows, df_network, name='solution0'):
         self.instance = instance
         self.dict_sol = dict_sol
         self.df_flows = df_flows
-        self.df_network = df_network
+        # agregate a column arc to be used as a key
         self.df_flows['arc'] = list(zip(self.df_flows['origin'], self.df_flows['destination']))
+        self.df_network = df_network
+        
         
     def solution_checker(self):
         # function to compare a value in the df to a value in a dictionary with que (a1,a2)

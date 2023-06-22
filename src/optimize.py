@@ -15,48 +15,17 @@ import re
 
 
 def create_model(instance):
-    
-    # # # desagregate data
-    
-    # # c_buy: buying cost
-    # # c_clasif: cost of classigying at collection center
-    # # c_activ: collection center activation cost
-    # # c_hold: cost of holding aty the collection center
-    # # capC: classification capacity
-    # # capS: sortage capacity
-    # # inisS: initial stock at the collection center
-    # collectors, c_buy, c_clasif, c_activ, c_hold, capC, capS, iniS  = gp.multidict(data['collectors'])
-    
-    # # c_clean: cost of cleaning at transformer
-    # # capM: casssification capacity
-    # manufs, c_clean, capM  = gp.multidict(data['manufs'])
+    """
+    Create a model based on the given instance object.
 
-    # regions = data['regions']
-    # producers = data['producers']
-    # time = data['time']
+    Args:
+        instance (Instance): The instance object containing the required data.
+
+    Returns:
+        Model: The created model.
+    """
     
-    # # Sparse network
-    # # echelon 1 (regions to collections centers)
-    # arcs_e1 = gp.tuplelist(data['arcs_e1'])
-
-    # # echelon 2 (collection centers to manufacturers)
-    # arcs_e2, cost_e2 = gp.multidict(data['arcs_e2'])
-
-    # # echelon 3 (manufaturers to producers)
-    # arcs_e3, cost_e3 = gp.multidict(data['arcs_e3'])
-
-
-    # # 2.5 generation and demands
-    # # generation in each region
-    # gen = data['gen']
-    # demP = data['demP']
-    # dt = data['dt']
-    # capV = data['capV']
-    
-    # regions, collectors, manufs, producers, time, c_buy, c_clasif, \
-    #     c_activ, c_hold, capC, capS, iniS, c_clean, capM, arcs_e1, arcs_e2, \
-    #     arcs_e3, cost_e2,  cost_e3, gen, demP, dt, capV  = expand_data(data)
-    
+    # get paarameters from the instance object
     regions = instance.regions
     collectors = instance.collectors
     manufs = instance.manufs
@@ -80,9 +49,10 @@ def create_model(instance):
     n_reg = instance.n_reg
     alpha = instance.alpha
     
+    # create the model    
     model = gp.Model('returnability')
     
-    # 3.2. create variables    
+    # create variables    
     activ = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ")
     activ_f = model.addVars(collectors, time, vtype=gp.GRB.BINARY, name="activ_f")
     cover = model.addVars(regions, vtype=gp.GRB.BINARY, name="cover")
@@ -93,28 +63,23 @@ def create_model(instance):
     trips = model.addVars(arcs, time,  vtype=gp.GRB.INTEGER, name="trip")
     
     
-    # # 3.3. create the objective function
+    # create the objective function
     obj = gp.LinExpr()
     # buying and classification cost
     for r,c,t in flow:
         if r in regions and c in collectors:
-            obj += c_buy[c]*flow[r,c,t] + c_clasif[c]*flow[r,c,t]
-        
+            obj += c_buy[c]*flow[r,c,t] + c_clasif[c]*flow[r,c,t]        
     # transforming (cleaning all income bottles)
     for c,m,t in flow:
         if c in collectors and m in manufs:
-            obj += c_clean[m]*flow[c,m,t] 
-    
+            obj += c_clean[m]*flow[c,m,t]     
     # collection center activation cost and inventory holding
     for c,t in [(c,t) for c in collectors for t in time]:
-        obj += c_activ[c]*activ[c,t] + c_hold[c]*stock[c,t]
-    
+        obj += c_activ[c]*activ[c,t] + c_hold[c]*stock[c,t]    
     # transport from collections to transformers
     for c,m,t in flow:
         if c in collectors and m in manufs:
-            obj += c_transp[c,m]*trips[c,m,t]
-        
-    
+            obj += c_transp[c,m]*trips[c,m,t]        
     # transport from transformers to producers 
     for m,p,t in flow:
         if m in manufs and p in producers:
@@ -123,77 +88,62 @@ def create_model(instance):
     # set the objective 
     model.setObjective(obj, GRB.MINIMIZE)
     
-    # 3.4. Constraints
+    # create constraints
     # number of regions to cover
-    constra_cover = model.addConstr(cover.sum('*') ==n_reg)
-    
-    # classification capacity
-    constr_capC = model.addConstrs(
-        (flow.sum('*', c, t) <= capC[c]*activ[c,t] for c in collectors for t in time), "capC")
-    
+    constra_cover = model.addConstr(cover.sum('*') ==n_reg)    
     # generation at each region
     constr_gen = model.addConstrs(
         (flow.sum(r, '*', t) <= gen[r,t] *cover[r] for r in regions for t in time), "gen")
-    
+    # classification capacity
+    constr_capC = model.addConstrs(
+        (flow.sum('*', c, t) <= capC[c]*activ[c,t] for c in collectors for t in time), "capC")
     # storage capacity
     constr_capS = model.addConstrs(
         (stock[c,t]<=capS[c] for c in collectors for t in time), "capS")
-    
     # transformer capacity
     constr_capM = model.addConstrs(
         (flow.sum('*', m, t) <= capM[m] for m in manufs for t in time), "capM")
-    
     # stock balance
-    def prev_stock(c,t):
+    def prev_stock(c,t): # auxiliary function to handle the case of period 1
         if t <= 1:
             return iniS[c]
         return stock[c,t-1]
         
     cosntr_stock = model.addConstrs(
         (stock[c,t] == prev_stock(c,t) + flow.sum('*', c, t) - flow.sum(c,'*', t) for c in collectors for t in time), "stock")
-    
-    # balance at transformers
+    # flow balance at transformers
     constr_manuf_bal = model.addConstrs(
         (flow.sum('*', m, t) == flow.sum(m, '*', t) for m in manufs for t in time), "manuf_balanc"
         )
-    
     # demand fulfillment
     constr_demP = model.addConstrs(
         (flow.sum('*',p, t) >= demP[p,t] for p in producers for t in time), "demP")
-    
     # commercial relationship
     constr_relat1 = model.addConstrs(
         (activ[c,t] >= activ_f[c,t1] for c in collectors for t1 in time for t in range(t1, min(t1+dt, len(time)))), "relat1")
-    
-    def prev_actv(c, t):
+    def prev_actv(c, t): # auxiliary function to handle the case of period 1
         if t <=1:
-            return 0
+            return 0 # TODO: check other cases
         return activ[c,t-1]    
     constr_relat2 = model.addConstrs(
         (activ_f[c,t]>=activ[c,t] - prev_actv(c, t) for c in collectors for t in time), "relat2"
         )
-    
     # maximum coverage
     constr_cov_max = model.addConstrs(
         (cover_max[t] >= flow.sum(r,'*',t)/gen[r,t] for t in time for r in regions), "cov_max"
         )
-    
     # minimum coverage
     constr_cov_min = model.addConstrs(
         (cover_min[t] <= flow.sum(r,'*',t)/gen[r,t] + 1 - cover[r] for t in time for r in regions), "cov_max"
         )
-    
     # balance coverage
     constr_cov_bal = model.addConstrs(
         (cover_max[t] - cover_min[t] <= alpha for t in time), "cover_bal"
         )
-    
-    
     # round up trips
     constr_trips_e2 = model.addConstrs(
         (trips[c,m,t] >=flow[c,m,t]/capV for c in collectors for m in manufs for t in time), "trips_e2"
         )
-    
     # round up trips
     constr_trips_e3 = model.addConstrs(
         (trips[m,p,t] >= flow[m,p,t] / capV for m in manufs for p in producers for t in time), "trips_e3"
@@ -210,10 +160,20 @@ def solve_model(model):
     return model
 
 def get_results(model, instance):
+    """
+    Retrieves the results of a mathematical optimization model.
+    
+    Args:
+        model (object): The solved optimization model.
+        instance (object): An instance object containing the parameters for the model.
+    
+    Returns:
+        tuple: A tuple containing the status and the solution object if the model is optimal,
+            otherwise a tuple containing the status and None.
+    """
 
-    # get solution
     if model.Status == GRB.OPTIMAL:
-        # dataframes with variables
+        # list of variables from the model solved
         flows = []
         network = []
         for var in model.getVars():
@@ -228,15 +188,17 @@ def get_results(model, instance):
                 flows.append(row)
             else:
                 network.append(row)
+                
         # Create data frames with the solution
         df_flows = pd.DataFrame.from_records(flows, columns=['name', 'origin', 'destination', 'period', 'value'])
         df_flows['period'] = df_flows['period'].astype(int)
         df_flows['arc'] = list(zip(df_flows['origin'], df_flows['destination']))
         df_network = pd.DataFrame.from_records(network, columns=['name', 'facility', 'period', 'value'])
         df_network['period'] = df_network['period'].astype(int)
-
-        df_flows_o = df_flows[df_flows['name']=='flow']
-        # calculated transport cost       
+        
+        # calculate the different parts ofthe cost
+        df_flows_o = df_flows[df_flows['name']=='flow'] # extract only the x (flow) variables
+        # transport cost       
         df_flows_o['trips'] = np.ceil((df_flows_o['value']-0.001)/instance.capV)
         df_flows_o['c_transp'] = df_flows_o['arc'].map(instance.c_transp)*df_flows_o['trips']
         c_transp = df_flows_o['c_transp'].sum()      
@@ -261,6 +223,7 @@ def get_results(model, instance):
         df_stock['c_hold'] = df_stock['facility'].map(instance.c_hold)*df_stock['count']
         c_hold = df_stock['c_hold'].sum()
         
+        # TODO: add other basic results
        
         # dictionary summarising results
         dict_sol ={
